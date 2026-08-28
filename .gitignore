@@ -1,0 +1,11 @@
+# 参考论文 PDF 及带机构标识的配图（版权，不入库）
+reference/
+
+# 系统与缓存
+.DS_Store
+**/.DS_Store
+__pycache__/
+*.pyc
+
+# 本地预览服务器日志等临时文件
+*.log
