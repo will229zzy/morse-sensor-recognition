@@ -64,10 +64,21 @@ def deglitch(R, ratio=3.0):
     return R, int(bad.sum())
 
 
-def to_relative(R):
-    """Per-file baseline R0 (robust low-percentile) -> (R-R0)/R0 in %."""
-    R0 = np.percentile(R, 20)
-    return (R - R0) / R0 * 100.0, R0
+def to_relative(R, sec=None, win_s=40.0):
+    """Convert resistance to relative change (%). Instead of one global baseline, track
+    a slowly-moving resting level (rolling low-percentile) so that slow sensor DRIFT --
+    which otherwise buries the presses (e.g. K70, B-64) -- is removed while the fast taps
+    are kept. Falls back to a global baseline when timing is unavailable."""
+    if sec is None or len(sec) < 20:
+        R0 = np.percentile(R, 20)
+        return (R - R0) / R0 * 100.0, R0
+    fs = len(sec) / (sec[-1] - sec[0])
+    win = max(11, int(round(fs * win_s)) | 1)          # odd window of ~win_s seconds
+    base = pd.Series(R).rolling(win, center=True, min_periods=max(5, win // 4)).quantile(0.10)
+    base = base.bfill().ffill().to_numpy()
+    base = np.maximum(base, 1e-6)
+    R0 = float(np.median(base))
+    return (R - base) / base * 100.0, R0
 
 
 def detect_presses(sec, x, min_width=0.6, min_sep=0.9):
@@ -154,7 +165,7 @@ def analyze_file(path):
     token, letters, numbers = parse_name(base)
     sec, R = load(path)
     R, n_glitch = deglitch(R)
-    x, R0 = to_relative(R)
+    x, R0 = to_relative(R, sec)
     presses = detect_presses(sec, x)
     n_elem = len(MORSE[letters[0]]) if letters else 1
     reps = group_repetitions(presses, n_elem)

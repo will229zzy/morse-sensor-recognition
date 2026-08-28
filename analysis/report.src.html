@@ -27,11 +27,9 @@
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{
-  margin:0;background:var(--ground);color:var(--ink);
+body{margin:0;background:var(--ground);color:var(--ink);
   font-family:"Noto Sans SC",system-ui,sans-serif;line-height:1.75;
-  font-size:16.5px;-webkit-font-smoothing:antialiased;
-}
+  font-size:16.5px;-webkit-font-smoothing:antialiased}
 .wrap{max-width:880px;margin:0 auto;padding:clamp(28px,5vw,72px) clamp(20px,5vw,40px) 96px}
 .reading{max-width:680px}
 h1,h2,h3{font-family:"Noto Serif SC",Georgia,serif;font-weight:700;text-wrap:balance;line-height:1.3}
@@ -45,17 +43,13 @@ a{color:var(--signal)}
 .lede{font-size:1.16rem;color:var(--muted);line-height:1.75}
 .mono{font-family:"IBM Plex Mono",monospace;font-size:.94em}
 .muted{color:var(--muted)}
-
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 0;padding:0;list-style:none}
-.chip{font-size:.82rem;color:var(--muted);
-  background:var(--surface);border:1px solid var(--hair);border-radius:999px;
-  padding:5px 14px;white-space:nowrap}
+.chip{font-size:.82rem;color:var(--muted);background:var(--surface);border:1px solid var(--hair);
+  border-radius:999px;padding:5px 14px;white-space:nowrap}
 .chip b{color:var(--ink);font-weight:700;font-family:"IBM Plex Mono",monospace}
-
 section{margin-top:clamp(44px,7vw,80px)}
 .kicker{font-family:"IBM Plex Mono",monospace;font-size:.72rem;letter-spacing:.12em;
   text-transform:uppercase;color:var(--faint);margin:0 0 12px}
-
 .steps{display:grid;gap:14px;margin:26px 0 0;padding:0;list-style:none}
 .step{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;
   background:var(--surface);border:1px solid var(--hair);border-radius:14px;
@@ -66,56 +60,51 @@ section{margin-top:clamp(44px,7vw,80px)}
 .step p{margin:0;color:var(--muted);font-size:.96rem;line-height:1.7}
 .step .tag{color:var(--dot);font-weight:700}
 .step .tag.d{color:var(--dash)}
-
 figure{margin:26px 0 0;background:var(--surface);border:1px solid var(--hair);
   border-radius:14px;padding:16px;box-shadow:var(--shadow)}
 figure img{display:block;width:100%;height:auto;border-radius:6px}
 figcaption{font-size:.88rem;color:var(--muted);margin-top:14px;line-height:1.75}
 figcaption .dot{color:var(--dot);font-weight:700}
 figcaption .dash{color:var(--dash);font-weight:700}
-
-.trick{background:var(--surface);border:1px solid var(--hair);border-left:3px solid var(--signal);
-  border-radius:12px;padding:22px 26px;margin-top:24px;box-shadow:var(--shadow)}
-.faildo{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
-.faildo>div{flex:1 1 200px;background:var(--surface-2);border-radius:10px;padding:16px 18px}
-.faildo .v{font-family:"IBM Plex Mono",monospace;font-size:1.9rem;font-weight:500;
-  font-variant-numeric:tabular-nums;line-height:1}
-.faildo .bad{color:var(--signal)}
-.faildo .ok{color:var(--good)}
-.faildo .lab{font-size:.85rem;color:var(--muted);margin-top:8px;line-height:1.6}
-
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px}
+@media(max-width:680px){.cards{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--hair);border-radius:14px;
+  padding:20px 22px;box-shadow:var(--shadow)}
+.card.a{border-top:3px solid var(--dot)} .card.b{border-top:3px solid var(--blue)}
+.card .t{font-family:"Noto Serif SC",serif;font-weight:700;font-size:1.1rem;margin-bottom:6px}
+.card p{font-size:.94rem;color:var(--muted);margin:0 0 .6em;line-height:1.7}
+.card .pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:.8rem;
+  padding:3px 10px;border-radius:999px;background:var(--surface-2);color:var(--ink)}
+.fixedfail{display:flex;gap:10px;align-items:baseline;margin-top:6px;flex-wrap:wrap}
+.fixedfail .v{font-family:"IBM Plex Mono",monospace;font-weight:500;font-variant-numeric:tabular-nums}
+.fixedfail .bad{color:var(--signal);font-size:1.15rem} .fixedfail .ok{color:var(--good);font-size:1.15rem}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:26px 0 0}
 .stat{background:var(--surface);border:1px solid var(--hair);border-radius:14px;
   padding:24px 22px;box-shadow:var(--shadow)}
 .stat .v{font-family:"IBM Plex Mono",monospace;font-size:clamp(2rem,5.5vw,2.7rem);font-weight:500;
-  line-height:1;font-variant-numeric:tabular-nums}
-.stat .v.g{color:var(--good)} .stat .v.w{color:var(--warn)}
+  line-height:1;font-variant-numeric:tabular-nums;color:var(--good)}
 .stat .lab{font-size:.92rem;color:var(--muted);margin-top:12px;line-height:1.65}
 @media(max-width:620px){.stats{grid-template-columns:1fr}}
-
 .chart{margin-top:26px;background:var(--surface);border:1px solid var(--hair);
   border-radius:14px;padding:22px 22px 18px;box-shadow:var(--shadow)}
 .legend{display:flex;flex-wrap:wrap;gap:16px 20px;margin-bottom:20px;font-size:.85rem;color:var(--muted)}
 .legend span{display:inline-flex;align-items:center;gap:7px}
 .sw{width:12px;height:12px;border-radius:3px;display:inline-block;flex:none}
-.rows{display:grid;gap:7px}
-.row{display:grid;grid-template-columns:1.5rem 3.2rem 1fr 2.8rem;gap:10px;align-items:center}
-.row .L{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1.02rem;text-align:center}
-.row .code{font-family:"IBM Plex Mono",monospace;font-size:.92rem;color:var(--muted);letter-spacing:.05em}
-.bar{height:16px;border-radius:5px;background:var(--surface-2);overflow:hidden;position:relative}
+.rows{display:grid;grid-template-columns:1fr 1fr;gap:6px 26px}
+@media(max-width:680px){.rows{grid-template-columns:1fr}}
+.row{display:grid;grid-template-columns:1.4rem 3rem 1fr 1.6rem;gap:9px;align-items:center}
+.row .L{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:1rem;text-align:center}
+.row .code{font-family:"IBM Plex Mono",monospace;font-size:.86rem;color:var(--muted);letter-spacing:.05em}
+.bar{height:15px;border-radius:5px;background:var(--surface-2);overflow:hidden}
 .bar>i{display:block;height:100%;border-radius:5px}
-.row .pct{font-family:"IBM Plex Mono",monospace;font-size:.86rem;text-align:right;
-  font-variant-numeric:tabular-nums;color:var(--muted)}
-.row.low .pct{color:var(--faint)}
+.row .mk{font-size:.9rem;text-align:center}
 .chart .note{font-size:.84rem;color:var(--muted);margin:18px 0 0;line-height:1.7}
-
 .take{display:grid;gap:12px;margin-top:24px;padding:0;list-style:none}
 .take li{background:var(--surface);border:1px solid var(--hair);border-radius:12px;
   padding:18px 22px;box-shadow:var(--shadow);color:var(--muted);line-height:1.75}
 .take b{font-weight:700;color:var(--ink)}
 .take .h{font-family:"Noto Serif SC",serif;font-size:1.08rem;font-weight:700;color:var(--ink);
   display:block;margin-bottom:5px}
-
 footer{margin-top:64px;padding-top:22px;border-top:1px solid var(--hair);
   font-size:.86rem;color:var(--faint);line-height:1.85}
 footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:.85rem}
@@ -125,10 +114,10 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
 
   <p class="eyebrow">柔性传感器 · 信号分析</p>
   <h1>把指尖敲击变成字母</h1>
-  <p class="lede reading">一块可拉伸的电阻传感器,会记录你按得有多重。用摩尔斯电码敲击它——轻敲和重敲——一个小程序就能读出你想输入的字母。这个页面讲清楚程序是怎么工作的,以及它识别得有多准。</p>
+  <p class="lede reading">一块可拉伸的电阻传感器,会记录你按得<b>有多重、按了多久</b>。用摩尔斯电码敲击它,一个小程序就能读出你敲的字母——26 个字母认对 <b>23 个</b>,连过去被认为"单独无法判读"的纯点 / 纯划字母也全部拿下。这个页面讲清楚它怎么做到的。</p>
   <ul class="chips">
     <li class="chip"><b>26</b>&nbsp; 个字母</li>
-    <li class="chip"><b>约 2,600</b>&nbsp; 次敲击</li>
+    <li class="chip"><b>约 4,800</b>&nbsp; 次敲击判读</li>
     <li class="chip"><b>Keysight 34461A</b>&nbsp; 万用表,约 2.4 Hz</li>
   </ul>
 
@@ -136,8 +125,8 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
     <p class="kicker">原始数据</p>
     <h2>传感器到底给了我们什么</h2>
     <div class="reading">
-      <p>每一份录制,都是<b>一个字母</b>在传感器上连续敲几十到上百次。每按一下,柔软的材料被挤压,它的<b>电阻</b>就往上跳一下;松手又落回去。万用表大约每秒记录两次电阻值。</p>
-      <p>所以整段原始信号,就是一条会在你按压时上升的波动曲线。数据本身没有任何标注——程序必须自己找出每一次敲击,再判断出规律。</p>
+      <p>每一份录制,都是<b>一个字母</b>在传感器上连续敲几十~上百次。每按一下,柔软的材料被挤压,它的<b>电阻</b>就往上跳一下;松手回落。万用表大约每秒记录两次。</p>
+      <p>整段原始信号就是一条按压时上升的波动曲线,<b>没有任何标注</b>——程序必须自己找出每次敲击,再判断出规律。</p>
     </div>
   </section>
 
@@ -147,57 +136,69 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
     <ol class="steps">
       <li class="step"><span class="n">1</span><div>
         <h3>找出每一次敲击</h3>
-        <p>曲线上每一个明显高出静息水平的鼓包,就算作一次手指按压。</p></div></li>
+        <p>先减掉缓慢漂移的静息基线,曲线上每个明显的鼓包 = 一次手指按压。</p></div></li>
       <li class="step"><span class="n">2</span><div>
-        <h3>量出每次敲击有多大</h3>
-        <p>对每一次敲击,量它的电阻跳了多高——用相对静息值的百分比表示(就是下图里的 <span class="mono">ΔR/R₀</span>)。</p></div></li>
+        <h3>量每次敲击的大小</h3>
+        <p>量它的<b>峰高</b>(电阻跳了多高,<span class="mono">ΔR/R₀</span>)和<b>时长</b>(按住了多久)。</p></div></li>
       <li class="step"><span class="n">3</span><div>
         <h3>小敲 = <span class="tag">点</span>,大敲 = <span class="tag d">划</span></h3>
-        <p>把敲击分成"小"和"大"两类。小的是摩尔斯的<span class="tag">点</span>(·),大的是<span class="tag d">划</span>(—)。这个"大小分界"是<b>对每一份录制单独设定</b>的——这个细节其实非常关键(见下一节)。</p></div></li>
+        <p>把敲击分成"小"和"大"。"大"可能是按得<b>更高</b>,也可能是按得<b>更久</b>——这两条线索都用上(见下一节)。</p></div></li>
       <li class="step"><span class="n">4</span><div>
         <h3>查摩尔斯码表</h3>
-        <p>把点划序列——比如 <span class="mono">—··</span>——对照标准摩尔斯字母表,就得到字母 <b>D</b>。</p></div></li>
+        <p>点划序列(如 <span class="mono">—··</span>)对照标准码表 → 字母 <b>D</b>。</p></div></li>
     </ol>
 
     <figure>
-      <img src="__EXAMPLE_PNG_B64__" alt="字母 D 与 F 的真实电阻曲线,高峰在虚线之上标为划,矮峰在虚线之下标为点。">
-      <figcaption><b>真实录制。</b>上:字母 <b>D</b> —— 每次重复都是一个<span class="dash">大峰(划)</span>加两个<span class="dot">小峰(点)</span> → <span class="mono">—··</span>。下:字母 <b>F</b> → <span class="mono">··—·</span>。蓝色虚线是程序为这份录制选定的大小分界线。</figcaption>
+      <img src="__EXAMPLE_PNG_B64__" alt="字母 D 与 F 的真实电阻曲线,高峰标为划,矮峰标为点。">
+      <figcaption><b>真实录制。</b>上:字母 <b>D</b> —— 每次都是一个<span class="dash">大峰(划)</span>加两个<span class="dot">小峰(点)</span> → <span class="mono">—··</span>。下:字母 <b>F</b> → <span class="mono">··—·</span>。蓝色虚线是程序为该录制选定的大小分界。</figcaption>
     </figure>
   </section>
 
   <section>
-    <p class="kicker">为什么不能用一个固定规则</p>
-    <h2>"大"只是相对旁边的敲击而言</h2>
+    <p class="kicker">同一条规则,两种情况</p>
+    <h2>怎么判断"大"——不能用固定数值</h2>
     <div class="reading">
-      <p>你可能觉得可以定个固定规则:<em>超过比如 5% 就算划。</em>行不通。一次敲击看起来有多大,取决于传感器的软硬和这个人按得多重——所以在一块传感器上的<span class="mono">点</span>,可能比另一块上的<span class="mono">划</span>物理上还要大。</p>
+      <p>一次敲击看起来有多大,取决于传感器的软硬和这个人按得多重。所以程序不用固定数值,而是靠<b>比较</b>。分两种情况:</p>
     </div>
-    <div class="trick">
-      <p style="margin:0 0 2px"><b>我们试过:对所有录制用同一个固定分界——</b></p>
-      <div class="faildo">
-        <div><div class="v bad">58%</div><div class="lab">用单一固定大小分界时的正确率,只比抛硬币好一点点</div></div>
-        <div><div class="v ok">约 95%</div><div class="lab">把每次敲击和<b>同一份</b>录制里的其他敲击相比时的正确率</div></div>
+    <div class="cards">
+      <div class="card a">
+        <div class="t">① 混合字母(含点又含划)</div>
+        <p>像 D、F、G——同一份录制里,划就是比点<b>高</b>。直接在这份录制内部按峰高相对比较即可。</p>
+        <div class="fixedfail">
+          <span><span class="v bad">58%</span> <span class="muted">全局固定分界</span></span>
+          <span style="color:var(--faint)">→</span>
+          <span><span class="v ok">约 95%+</span> <span class="muted">同一录制内相对比较</span></span>
+        </div>
       </div>
-      <p class="muted" style="margin:16px 0 0;font-size:.94rem">这正是真实摩尔斯的做法:一条划被定义为"比它周围的点更长",而不是某个固定长度。程序对敲击大小做的是同一件事——它靠<b>比较</b>,而不用一个固定数值。</p>
+      <div class="card b">
+        <div class="t">② 纯字母(全点或全划)</div>
+        <p>像 E、S、I、M——一份录制里没有高矮对比。但<b>划按得更久</b>(点 ≈ 3s、划 ≈ 4s)。关键是:<b>时长是人为动作,跨录制稳定</b>,而峰高会乱。</p>
+        <span class="pill">按时长兜底 · 分界 ≈ 3.6s</span>
+      </div>
     </div>
+    <figure>
+      <img src="__DURATION_PNG_B64__" alt="纯字母 I 与 M 的电阻曲线:峰高相近,但 M 的每次按压更宽更久。">
+      <figcaption>纯字母靠<b>时长</b>区分。<span class="dot">I(··)</span>和 <span class="dash">M(——)</span>峰高相近——注意<b>点字母 I 的峰甚至比划字母 M 还高</b>,所以靠高度会判反;但 M 的每次按压明显<b>更久</b>(≈4.2s vs 3.4s),据此就能分开。</figcaption>
+    </figure>
   </section>
 
   <section>
     <p class="kicker">结果</p>
     <h2>它到底有多准</h2>
     <div class="stats">
-      <div class="stat"><div class="v g">94.9%</div><div class="lab"><b>点 / 划</b>判读正确率(针对同时含点和划的字母)</div></div>
-      <div class="stat"><div class="v g">90.2%</div><div class="lab"><b>整个字母</b>解码正确率(在切分干净的重复上)</div></div>
-      <div class="stat"><div class="v w">约 50%</div><div class="lab"><b>单一形态字母</b>(E、T、I、M、O、S、H)——单看一个字母无法判读</div></div>
+      <div class="stat"><div class="v">97.9%</div><div class="lab"><b>点 / 划</b>判读正确率(全部约 4,800 次敲击)</div></div>
+      <div class="stat"><div class="v">97.0%</div><div class="lab"><b>整个字母</b>解码正确率(每次重复)</div></div>
+      <div class="stat"><div class="v">23 / 26</div><div class="lab"><b>字母</b>认对——含全部 7 个纯字母</div></div>
     </div>
 
     <div class="chart">
       <div class="legend">
-        <span><i class="sw" style="background:var(--dot)"></i> 点划混合 —— 可识别</span>
-        <span><i class="sw" style="background:var(--warn)"></i> 全点或全划 —— 需要上下文</span>
-        <span><i class="sw" style="background:var(--surface-2);border:1px solid var(--hair)"></i> 干净样本很少</span>
+        <span><i class="sw" style="background:var(--dot)"></i> 靠峰高识别(混合字母)</span>
+        <span><i class="sw" style="background:var(--blue)"></i> 靠时长识别(纯字母)</span>
+        <span><i class="sw" style="background:var(--warn)"></i> 暂未认出</span>
       </div>
       <div class="rows" id="rows"></div>
-      <p class="note">条形表示每次敲击被判成 <span class="mono">点</span>/<span class="mono">划</span> 的正确率。浅色条是切分干净的重复很少的字母(如 K、V、Y),那里的数字只是<b>样本太少</b>,并不是方法失败。</p>
+      <p class="note">每个字母的条形 = 该字母每次重复被完整解码正确的比例;末尾 <span style="color:var(--good);font-weight:700">✓</span> / <span style="color:var(--warn);font-weight:700">✗</span> 是多数投票是否认对。<b>C、X、Y</b> 未认出,是因为那三份录制本身<b>点划没做出区分</b>(点按太重、或划按太短),重录即可解决——不是方法的问题。</p>
     </div>
   </section>
 
@@ -205,18 +206,18 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
     <p class="kicker">这意味着什么 · 大白话</p>
     <h2>怎么看这个结果</h2>
     <ul class="take">
-      <li><span class="h">传感器能干净地区分"轻敲"和"重敲"。</span>
-        这是最核心的能力。当敲击被干净地采集到时,点/划的判断几乎完美(很多字母达到 100%)。</li>
-      <li><span class="h">全点或全划的字母,单独看是有歧义的。</span>
-        <b>E</b>(一个点)和 <b>T</b>(一个划),如果你只看到这一个字母,它们长得一模一样——没有任何可比较的参照。可一旦放进真实的单词里,它们就清楚了,因为相邻的字母提供了尺度参照。<span class="mono">SOS</span> 信号正是这么读出来的。</li>
-      <li><span class="h">拖住"整词得分"的主要是记账,不是传感器。</span>
-        在长录制里,电阻会缓慢漂移,这让"把一次重复干净地和下一次切开"变得更难。这是一个可以解决的信号处理问题——而不是材料或"点/划"思路本身的极限。</li>
+      <li><span class="h">传感器能干净地分辨"轻/重"和"短/长"敲击。</span>
+        这是核心能力。只要敲击被清晰采集,点/划判读近乎完美——**约 4,800 次里错不到 2.1%**。</li>
+      <li><span class="h">纯字母也能认出来——靠"时长"。</span>
+        全点或全划的字母(E、T、I、M、O、S、H),过去以为单独一个无法判读。这次靠"<b>划按得更久</b>"把 <b>7 个纯字母全部认对</b>。因为按压时长是人的动作,不随传感器状态漂移。</li>
+      <li><span class="h">剩下 3 个是录制问题,不是方法问题。</span>
+        <b>C / X / Y</b> 的输入本身点划没拉开(点按太重、或划按太短、时轻时重),所以读不准。让操作者把点划做得更分明重录一次即可。</li>
     </ul>
   </section>
 
   <footer>
-    <p><span class="mono">方法：</span>在基线校正后的电阻(ΔR/R₀)上做敲击检测 → 为每份录制单独定大小阈值(Otsu)→ 点/划 → 查摩尔斯码表。一份失败的录制(传感器开路)已剔除。</p>
-    <p><span class="mono">数据：</span>36 份"电阻—时间"录制,每个字母一份,Keysight 34461A。传感器概念参考 Wei 等,明胶稳定液态金属导电水凝胶。</p>
+    <p><span class="mono">方法：</span>敲击检测(先做滚动基线去趋势,消除慢漂移)→ 有高矮对比就按<b>相对峰高</b>判、没有对比就按<b>绝对时长</b>(≈3.6s)兜底 → 点/划 → 查摩尔斯码表。一份失败录制(传感器开路)已剔除。</p>
+    <p><span class="mono">数据：</span>36 份"电阻—时间"录制,每字母一份,Keysight 34461A。传感器概念参考 Wei 等,明胶稳定液态金属导电水凝胶。</p>
   </footer>
 </div>
 
@@ -224,16 +225,15 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
 const DATA = __LETTER_DATA__;
 const rows = document.getElementById('rows');
 for(const d of DATA){
-  const acc = d.el==null ? null : Math.round(d.el*100);
-  const low = d.clean < 10;
-  const color = d.mixed ? 'var(--dot)' : 'var(--warn)';
+  const acc = d.acc==null ? null : Math.round(d.acc*100);
+  const color = !d.ok ? 'var(--warn)' : (d.mode==='width' ? 'var(--blue)' : 'var(--dot)');
   const row = document.createElement('div');
-  row.className = 'row' + (low ? ' low':'');
+  row.className = 'row';
   row.innerHTML =
     `<div class="L">${d.L}</div>`+
     `<div class="code">${d.marks}</div>`+
-    `<div class="bar"><i style="width:${acc==null?0:acc}%;background:${color};opacity:${low?0.42:1}"></i></div>`+
-    `<div class="pct">${acc==null?'—':acc+'%'}</div>`;
+    `<div class="bar"><i style="width:${acc==null?0:acc}%;background:${color}"></i></div>`+
+    `<div class="mk" style="color:${d.ok?'var(--good)':'var(--warn)'}">${d.ok?'✓':'✗'}</div>`;
   rows.appendChild(row);
 }
 </script>
