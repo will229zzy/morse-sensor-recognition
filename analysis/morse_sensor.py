@@ -234,37 +234,45 @@ def group_into_letters(taps: List[Tap]) -> List[List[Tap]]:
 # --------------------------------------------------------------------------- #
 # 4. 判点/划 —— 有对比用峰高,无对比用时长
 # --------------------------------------------------------------------------- #
-def classify_taps(taps: List[Tap]) -> str:
-    """就地给每个 tap 填上 '.'或'-',返回采用的判据名称。
+def classify_group(group: List[Tap]) -> str:
+    """就地给一个字母(一组按压)里的每个 tap 填上 '.'或'-',返回所用判据。
 
-    在整段录制的所有按压上决定用哪条判据:峰高明显分两档就按相对峰高,否则按绝对时长。"""
-    heights = np.array([t.height for t in taps])
-    thr_h, ratio = _otsu(heights)
-    if ratio >= HEIGHT_RATIO_MIN:
-        for t in taps:
-            t.symbol = "-" if t.height >= thr_h else "."
+    逐组判定,比全局统计稳健:
+      * 组内若出现明显的高矮对比(最高/最矮 ≥ HEIGHT_RATIO_MIN)——说明这个字母既有点又有
+        划,按【组内相对峰高】判(高的是划);
+      * 组内高矮相近(纯点或纯划的字母,没有对比)——按【绝对时长】判(划按得更久)。
+    """
+    if not group:
+        return ""
+    hs = np.array([t.height for t in group])
+    if len(group) >= 2 and hs.max() / max(hs.min(), 1e-6) >= HEIGHT_RATIO_MIN:
+        thr, _ = _otsu(hs)
+        for t in group:
+            t.symbol = "-" if t.height >= thr else "."
         return "相对峰高"
-    else:
-        for t in taps:
-            t.symbol = "-" if t.width >= DASH_WIDTH_S else "."
-        return "绝对时长"
+    for t in group:
+        t.symbol = "-" if t.width >= DASH_WIDTH_S else "."
+    return "绝对时长"
 
 
 # --------------------------------------------------------------------------- #
 # 5. 顶层:解码一整段录制
 # --------------------------------------------------------------------------- #
 def decode(sec: np.ndarray, R: np.ndarray) -> DecodeResult:
-    """从(时间, 电阻)解码出字母。"""
+    """从(时间, 电阻)解码出字母:先切成一个个字母,再逐组判点/划。"""
+    from collections import Counter
     R = deglitch(R)
     rel, base = detrend(R, sec)
     taps = detect_taps(sec, rel)
-    rule = classify_taps(taps) if taps else ""
     groups = group_into_letters(taps)
 
     letters: List[LetterGroup] = []
+    rules: List[str] = []
     for g in groups:
+        rules.append(classify_group(g))
         sym = "".join(t.symbol for t in g)
         letters.append(LetterGroup(taps=g, symbol=sym, letter=MORSE_INV.get(sym, "?")))
+    rule = Counter(rules).most_common(1)[0][0] if rules else ""
     text = "".join(lg.letter for lg in letters)
     return DecodeResult(sec=sec, rel=rel, baseline_ohm=base,
                         taps=taps, letters=letters, rule=rule, text=text)
@@ -297,23 +305,21 @@ def evaluate_repeated_letter(path: str, expected_len: Optional[int] = None) -> d
     true_letter = letter_from_filename(path)
     k = expected_len if expected_len else (len(MORSE.get(true_letter, "")) or None)
 
-    # 用已知长度把按压切成一次次重复(仅评测用)
+    # 用已知长度把按压切成一次次重复(仅评测用),再逐组判点/划
     taps = res.taps
     if not taps:
         return dict(file=os.path.basename(path), letter=true_letter, taps=0)
     reps = _regroup_by_count(taps, k) if k else group_into_letters(taps)
-    thr_h, ratio = _otsu(np.array([t.height for t in taps]))
-    use_height = ratio >= HEIGHT_RATIO_MIN
-    ok = 0
-    for rep in reps:
-        if len(rep) != (k or len(rep)):
-            continue
-        sym = "".join(("-" if (t.height >= thr_h if use_height else t.width >= DASH_WIDTH_S)
-                       else ".") for t in rep)
+    from collections import Counter
+    ok, rules = 0, []
+    clean = [rep for rep in reps if not k or len(rep) == k]
+    for rep in clean:
+        rules.append(classify_group(rep))
+        sym = "".join(t.symbol for t in rep)
         ok += (MORSE_INV.get(sym) == true_letter)
-    n = sum(1 for rep in reps if not k or len(rep) == k)
+    n = len(clean)
     return dict(file=os.path.basename(path), letter=true_letter,
-                rule=("相对峰高" if use_height else "绝对时长"),
+                rule=(Counter(rules).most_common(1)[0][0] if rules else ""),
                 taps=len(taps), clean_reps=n,
                 acc=(ok / n if n else None))
 

@@ -114,7 +114,7 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
 
   <p class="eyebrow">柔性传感器 · 信号分析</p>
   <h1>把指尖敲击变成字母</h1>
-  <p class="lede reading">一块可拉伸的电阻传感器,会记录你按得<b>有多重、按了多久</b>。用摩尔斯电码敲击它,一个小程序就能读出你敲的字母——26 个字母认对 <b>23 个</b>,连过去被认为"单独无法判读"的纯点 / 纯划字母也全部拿下。这个页面讲清楚它怎么做到的。</p>
+  <p class="lede reading">一块可拉伸的电阻传感器,会记录你按得<b>有多重、按了多久</b>。用摩尔斯电码敲击它,一个小程序就能读出你敲的字母——26 个字母认对 <b>24 个</b>,连过去被认为"单独无法判读"的纯点 / 纯划字母也全部拿下。这个页面讲清楚它怎么做到的。</p>
   <ul class="chips">
     <li class="chip"><b>26</b>&nbsp; 个字母</li>
     <li class="chip"><b>约 4,800</b>&nbsp; 次敲击判读</li>
@@ -186,9 +186,9 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
     <p class="kicker">结果</p>
     <h2>它到底有多准</h2>
     <div class="stats">
-      <div class="stat"><div class="v">97.9%</div><div class="lab"><b>点 / 划</b>判读正确率(全部约 4,800 次敲击)</div></div>
-      <div class="stat"><div class="v">97.0%</div><div class="lab"><b>整个字母</b>解码正确率(每次重复)</div></div>
-      <div class="stat"><div class="v">23 / 26</div><div class="lab"><b>字母</b>认对——含全部 7 个纯字母</div></div>
+      <div class="stat"><div class="v">98.6%</div><div class="lab"><b>点 / 划</b>判读正确率(全部约 4,800 次敲击)</div></div>
+      <div class="stat"><div class="v">97.7%</div><div class="lab"><b>整个字母</b>解码正确率(每次重复)</div></div>
+      <div class="stat"><div class="v">24 / 26</div><div class="lab"><b>字母</b>认对——含全部 7 个纯字母</div></div>
     </div>
 
     <div class="chart">
@@ -198,7 +198,7 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
         <span><i class="sw" style="background:var(--warn)"></i> 暂未认出</span>
       </div>
       <div class="rows" id="rows"></div>
-      <p class="note">每个字母的条形 = 该字母每次重复被完整解码正确的比例;末尾 <span style="color:var(--good);font-weight:700">✓</span> / <span style="color:var(--warn);font-weight:700">✗</span> 是多数投票是否认对。<b>C、X、Y</b> 未认出,是因为那三份录制本身<b>点划没做出区分</b>(点按太重、或划按太短),重录即可解决——不是方法的问题。</p>
+      <p class="note">每个字母的条形 = 该字母每次重复被完整解码正确的比例;末尾 <span style="color:var(--good);font-weight:700">✓</span> / <span style="color:var(--warn);font-weight:700">✗</span> 是多数投票是否认对。<b>C、X</b> 未认出,是因为那三份录制本身<b>点划没做出区分</b>(点按太重、或划按太短),重录即可解决——不是方法的问题。</p>
     </div>
   </section>
 
@@ -207,11 +207,11 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
     <h2>怎么看这个结果</h2>
     <ul class="take">
       <li><span class="h">传感器能干净地分辨"轻/重"和"短/长"敲击。</span>
-        这是核心能力。只要敲击被清晰采集,点/划判读近乎完美——**约 4,800 次里错不到 2.1%**。</li>
+        这是核心能力。只要敲击被清晰采集,点/划判读近乎完美——**约 4,800 次里错不到 1.4%**。</li>
       <li><span class="h">纯字母也能认出来——靠"时长"。</span>
         全点或全划的字母(E、T、I、M、O、S、H),过去以为单独一个无法判读。这次靠"<b>划按得更久</b>"把 <b>7 个纯字母全部认对</b>。因为按压时长是人的动作,不随传感器状态漂移。</li>
       <li><span class="h">剩下 3 个是录制问题,不是方法问题。</span>
-        <b>C / X / Y</b> 的输入本身点划没拉开(点按太重、或划按太短、时轻时重),所以读不准。让操作者把点划做得更分明重录一次即可。</li>
+        <b>C / X</b> 的输入本身点划没拉开(点按太重、或差别太小时轻时重),所以读不准。让操作者把点划做得更分明重录一次即可。</li>
     </ul>
   </section>
 
@@ -222,7 +222,7 @@ footer .mono{color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:
 </div>
 
 <script>
-const DATA = [{"L": "A", "marks": "\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "B", "marks": "\u2014\u00b7\u00b7\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "C", "marks": "\u2014\u00b7\u2014\u00b7", "acc": 0.0, "mode": "height", "ok": false}, {"L": "D", "marks": "\u2014\u00b7\u00b7", "acc": 0.8415841584158416, "mode": "height", "ok": true}, {"L": "E", "marks": "\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "F", "marks": "\u00b7\u00b7\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "G", "marks": "\u2014\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "H", "marks": "\u00b7\u00b7\u00b7\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "I", "marks": "\u00b7\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "J", "marks": "\u00b7\u2014\u2014\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "K", "marks": "\u2014\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "L", "marks": "\u00b7\u2014\u00b7\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "M", "marks": "\u2014\u2014", "acc": 1.0, "mode": "width", "ok": true}, {"L": "N", "marks": "\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "O", "marks": "\u2014\u2014\u2014", "acc": 1.0, "mode": "width", "ok": true}, {"L": "P", "marks": "\u00b7\u2014\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "Q", "marks": "\u2014\u2014\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "R", "marks": "\u00b7\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "S", "marks": "\u00b7\u00b7\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "T", "marks": "\u2014", "acc": 0.9901960784313726, "mode": "height", "ok": true}, {"L": "U", "marks": "\u00b7\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "V", "marks": "\u00b7\u00b7\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "W", "marks": "\u00b7\u2014\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "X", "marks": "\u2014\u00b7\u00b7\u2014", "acc": 0.0, "mode": "height", "ok": false}, {"L": "Y", "marks": "\u2014\u00b7\u2014\u2014", "acc": 0.0, "mode": "width", "ok": false}, {"L": "Z", "marks": "\u2014\u2014\u00b7\u00b7", "acc": 1.0, "mode": "height", "ok": true}];
+const DATA = [{"L": "A", "marks": "\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "B", "marks": "\u2014\u00b7\u00b7\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "C", "marks": "\u2014\u00b7\u2014\u00b7", "acc": 0.0, "mode": "width", "ok": false}, {"L": "D", "marks": "\u2014\u00b7\u00b7", "acc": 0.8415841584158416, "mode": "height", "ok": true}, {"L": "E", "marks": "\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "F", "marks": "\u00b7\u00b7\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "G", "marks": "\u2014\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "H", "marks": "\u00b7\u00b7\u00b7\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "I", "marks": "\u00b7\u00b7", "acc": 0.9803921568627451, "mode": "width", "ok": true}, {"L": "J", "marks": "\u00b7\u2014\u2014\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "K", "marks": "\u2014\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "L", "marks": "\u00b7\u2014\u00b7\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "M", "marks": "\u2014\u2014", "acc": 1.0, "mode": "width", "ok": true}, {"L": "N", "marks": "\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "O", "marks": "\u2014\u2014\u2014", "acc": 1.0, "mode": "width", "ok": true}, {"L": "P", "marks": "\u00b7\u2014\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "Q", "marks": "\u2014\u2014\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "R", "marks": "\u00b7\u2014\u00b7", "acc": 1.0, "mode": "height", "ok": true}, {"L": "S", "marks": "\u00b7\u00b7\u00b7", "acc": 1.0, "mode": "width", "ok": true}, {"L": "T", "marks": "\u2014", "acc": 1.0, "mode": "width", "ok": true}, {"L": "U", "marks": "\u00b7\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "V", "marks": "\u00b7\u00b7\u00b7\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "W", "marks": "\u00b7\u2014\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "X", "marks": "\u2014\u00b7\u00b7\u2014", "acc": 0.0, "mode": "height", "ok": false}, {"L": "Y", "marks": "\u2014\u00b7\u2014\u2014", "acc": 1.0, "mode": "height", "ok": true}, {"L": "Z", "marks": "\u2014\u2014\u00b7\u00b7", "acc": 1.0, "mode": "height", "ok": true}];
 const rows = document.getElementById('rows');
 for(const d of DATA){
   const acc = d.acc==null ? null : Math.round(d.acc*100);

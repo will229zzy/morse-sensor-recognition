@@ -47,19 +47,28 @@ def analyze(path):
     k = len(code) or None
     if not taps or not k:
         return None
-    heights = np.array([t.height for t in taps])
-    thr_h, ratio = ms._otsu(heights)
-    use_height = ratio >= ms.HEIGHT_RATIO_MIN
-    for t in taps:
-        t.symbol = "-" if (t.height >= thr_h if use_height else t.width >= ms.DASH_WIDTH_S) else "."
     reps = ms._regroup_by_count(taps, k)
     clean = [r for r in reps if len(r) == k]
+    rules = []
+    for r in clean:
+        rules.append(ms.classify_group(r))
     ok = sum("".join(t.symbol for t in r) == code for r in clean)
+    from collections import Counter
+    rule = Counter(rules).most_common(1)[0][0] if rules else "相对峰高"
+    thr_h = ms._otsu(np.array([t.height for t in taps]))[0]
+
+    # 用真值统计点/划的实际大小,给失败原因用
+    dot_h = [t.height for r in clean for t, c in zip(r, code) if c == "."]
+    dash_h = [t.height for r in clean for t, c in zip(r, code) if c == "-"]
+    dot_w = [t.width for r in clean for t, c in zip(r, code) if c == "."]
+    dash_w = [t.width for r in clean for t, c in zip(r, code) if c == "-"]
     return dict(path=path, letter=letter, code=code, k=k, sec=sec, rel=rel,
-                base=base, taps=taps, clean=clean,
-                rule=("相对峰高" if use_height else "绝对时长"),
-                thr_h=thr_h, n_clean=len(clean), ok=ok,
-                acc=(ok / len(clean) if clean else None))
+                base=base, taps=taps, clean=clean, rule=rule, thr_h=thr_h,
+                n_clean=len(clean), ok=ok, acc=(ok / len(clean) if clean else None),
+                dot_h=np.median(dot_h) if dot_h else None,
+                dash_h=np.median(dash_h) if dash_h else None,
+                dot_w=np.median(dot_w) if dot_w else None,
+                dash_w=np.median(dash_w) if dash_w else None)
 
 
 def gather(folder):
@@ -78,15 +87,43 @@ def gather(folder):
         d["acc"] = d["ok"] / d["n_clean"] if d["n_clean"] else None
         d["pred_ok"] = d["acc"] is not None and d["acc"] >= 0.5
         d["rule"] = d["best"]["rule"] if d["best"] else ""
+        d["reason"] = _fail_reason(d["best"]) if not d["pred_ok"] else ""
     return per
+
+
+def _fail_reason(a):
+    """给没认出的字母写一句为什么:核心就是点(短波)和划(长波)没敲出区分。"""
+    if a is None or a.get("dash_h") is None or a.get("dot_h") is None:
+        return "干净重复太少,无法稳定判读"
+    c = a["dash_h"] / a["dot_h"] if a["dot_h"] else 1.0
+    if c < 1.6:
+        return (f"点和划敲得差不多大(峰高只差 {c:.1f}×,通常需 2× 以上)——"
+                f"看不出哪些是短波、哪些是长波")
+    return "点划大小时大时小、不稳定——长短波的分组认不准"
 
 
 # --------------------------------------------------------------------------- #
 # 画图工具
 # --------------------------------------------------------------------------- #
+def _contiguous_reps(clean, n):
+    """从干净重复里挑出时间上连续的一段(避免跨越长时间停顿,画出来才紧凑好看)。"""
+    if len(clean) <= n:
+        return clean
+    # 相邻重复之间的间隔;正常重复间隔远小于中途停顿
+    gaps = [clean[i + 1][0].t_start - clean[i][-1].t_end for i in range(len(clean) - 1)]
+    thr = 3 * np.median([r[-1].t_end - r[0].t_start for r in clean]) + 8
+    best_i = 0
+    for i in range(len(clean) - n + 1):
+        if all(gaps[j] < thr for j in range(i, i + n - 1)):
+            best_i = i
+            if i >= 2:               # 跳过最开头几次(通常还没按稳)
+                break
+    return clean[best_i:best_i + n]
+
+
 def plot_reps(ax, a, n=3, annotate=True, show_cut=False):
-    """在 ax 上画某文件的前 n 个干净重复,并标注每次按压的点/划。"""
-    reps = a["clean"][2:2 + n] or a["clean"][:n]
+    """在 ax 上画某文件的连续 n 个干净重复,并标注每次按压的点/划。"""
+    reps = _contiguous_reps(a["clean"], n) or a["clean"][:n]
     if not reps:
         ax.text(0.5, 0.5, "无干净重复", ha="center", va="center",
                 transform=ax.transAxes, color=C_MUTE, fontproperties=ZH); return
@@ -265,10 +302,16 @@ def page_gallery(pdf, per):
             mk = "✓" if d["pred_ok"] else "✗"
             acc = "—" if d["acc"] is None else f"{d['acc']*100:.0f}%"
             col = C_OK if d["pred_ok"] else C_BAD
-            ax.set_title(f"{d['letter']}  =  {marks(d['code'])}      识别率 {acc} {mk}"
-                         f"      判据:{d['rule']}",
+            tail = f"      判据:{d['rule']}" if d["pred_ok"] else "      未认出"
+            ax.set_title(f"{d['letter']}  =  {marks(d['code'])}      识别率 {acc} {mk}{tail}",
                          fontproperties=ZH, fontsize=11, loc="left", color=col)
             ax.set_ylabel("ΔR/R₀ (%)", fontproperties=ZH, fontsize=8)
+            if not d["pred_ok"] and d.get("reason"):
+                ax.text(0.5, 0.94, "原因:" + d["reason"], transform=ax.transAxes,
+                        ha="center", va="top", fontsize=9.5, color=C_BAD,
+                        fontproperties=ZH,
+                        bbox=dict(boxstyle="round,pad=0.4", fc="#fdf3e3",
+                                  ec=C_BAD, lw=1))
             if i == len(chunk) - 1:
                 ax.set_xlabel("时间 (s)", fontproperties=ZH, fontsize=9)
         pdf.savefig(fig); plt.close(fig)

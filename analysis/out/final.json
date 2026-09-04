@@ -1,376 +1,192 @@
 {
-  "summary": {
-    "letters_ok": 23,
-    "letters_total": 26,
-    "element_acc": 0.9785,
-    "per_rep_letter_acc": 0.9702,
-    "clean_reps": 1676,
-    "width_thr": 3.6
+ "summary": {
+  "letters_ok": 24,
+  "element_acc": 0.9864,
+  "per_rep": 0.9773,
+  "clean": 1672
+ },
+ "letters": [
+  {
+   "L": "A",
+   "marks": "·—",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
   },
-  "letters": [
-    {
-      "L": "A",
-      "code": ".-",
-      "marks": "·—",
-      "mode": "height (relative)",
-      "clean": 44,
-      "letter_ok": 44,
-      "el_tot": 88,
-      "el_ok": 88,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "A",
-      "ok": true
-    },
-    {
-      "L": "B",
-      "code": "-...",
-      "marks": "—···",
-      "mode": "height (relative)",
-      "clean": 60,
-      "letter_ok": 60,
-      "el_tot": 240,
-      "el_ok": 240,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "B",
-      "ok": true
-    },
-    {
-      "L": "C",
-      "code": "-.-.",
-      "marks": "—·—·",
-      "mode": "height (relative)",
-      "clean": 12,
-      "letter_ok": 0,
-      "el_tot": 48,
-      "el_ok": 24,
-      "letter_acc": 0.0,
-      "el_acc": 0.5,
-      "pred": "?",
-      "ok": false
-    },
-    {
-      "L": "D",
-      "code": "-..",
-      "marks": "—··",
-      "mode": "height (relative)",
-      "clean": 101,
-      "letter_ok": 85,
-      "el_tot": 303,
-      "el_ok": 271,
-      "letter_acc": 0.8415841584158416,
-      "el_acc": 0.8943894389438944,
-      "pred": "D",
-      "ok": true
-    },
-    {
-      "L": "E",
-      "code": ".",
-      "marks": "·",
-      "mode": "width (absolute)",
-      "clean": 100,
-      "letter_ok": 100,
-      "el_tot": 100,
-      "el_ok": 100,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "E",
-      "ok": true
-    },
-    {
-      "L": "F",
-      "code": "..-.",
-      "marks": "··—·",
-      "mode": "height (relative)",
-      "clean": 42,
-      "letter_ok": 42,
-      "el_tot": 168,
-      "el_ok": 168,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "F",
-      "ok": true
-    },
-    {
-      "L": "G",
-      "code": "--.",
-      "marks": "——·",
-      "mode": "height (relative)",
-      "clean": 99,
-      "letter_ok": 99,
-      "el_tot": 297,
-      "el_ok": 297,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "G",
-      "ok": true
-    },
-    {
-      "L": "H",
-      "code": "....",
-      "marks": "····",
-      "mode": "width (absolute)",
-      "clean": 100,
-      "letter_ok": 100,
-      "el_tot": 400,
-      "el_ok": 400,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "H",
-      "ok": true
-    },
-    {
-      "L": "I",
-      "code": "..",
-      "marks": "··",
-      "mode": "width (absolute)",
-      "clean": 102,
-      "letter_ok": 102,
-      "el_tot": 204,
-      "el_ok": 204,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "I",
-      "ok": true
-    },
-    {
-      "L": "J",
-      "code": ".---",
-      "marks": "·———",
-      "mode": "height (relative)",
-      "clean": 46,
-      "letter_ok": 46,
-      "el_tot": 184,
-      "el_ok": 184,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "J",
-      "ok": true
-    },
-    {
-      "L": "K",
-      "code": "-.-",
-      "marks": "—·—",
-      "mode": "height (relative)",
-      "clean": 62,
-      "letter_ok": 62,
-      "el_tot": 186,
-      "el_ok": 186,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "K",
-      "ok": true
-    },
-    {
-      "L": "L",
-      "code": ".-..",
-      "marks": "·—··",
-      "mode": "height (relative)",
-      "clean": 99,
-      "letter_ok": 99,
-      "el_tot": 396,
-      "el_ok": 396,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "L",
-      "ok": true
-    },
-    {
-      "L": "M",
-      "code": "--",
-      "marks": "——",
-      "mode": "width (absolute)",
-      "clean": 103,
-      "letter_ok": 103,
-      "el_tot": 206,
-      "el_ok": 206,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "M",
-      "ok": true
-    },
-    {
-      "L": "N",
-      "code": "-.",
-      "marks": "—·",
-      "mode": "height (relative)",
-      "clean": 79,
-      "letter_ok": 79,
-      "el_tot": 158,
-      "el_ok": 158,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "N",
-      "ok": true
-    },
-    {
-      "L": "O",
-      "code": "---",
-      "marks": "———",
-      "mode": "width (absolute)",
-      "clean": 100,
-      "letter_ok": 100,
-      "el_tot": 300,
-      "el_ok": 300,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "O",
-      "ok": true
-    },
-    {
-      "L": "P",
-      "code": ".--.",
-      "marks": "·——·",
-      "mode": "height (relative)",
-      "clean": 48,
-      "letter_ok": 48,
-      "el_tot": 192,
-      "el_ok": 192,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "P",
-      "ok": true
-    },
-    {
-      "L": "Q",
-      "code": "--.-",
-      "marks": "——·—",
-      "mode": "height (relative)",
-      "clean": 26,
-      "letter_ok": 26,
-      "el_tot": 104,
-      "el_ok": 104,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "Q",
-      "ok": true
-    },
-    {
-      "L": "R",
-      "code": ".-.",
-      "marks": "·—·",
-      "mode": "height (relative)",
-      "clean": 56,
-      "letter_ok": 56,
-      "el_tot": 168,
-      "el_ok": 168,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "R",
-      "ok": true
-    },
-    {
-      "L": "S",
-      "code": "...",
-      "marks": "···",
-      "mode": "width (absolute)",
-      "clean": 59,
-      "letter_ok": 59,
-      "el_tot": 177,
-      "el_ok": 177,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "S",
-      "ok": true
-    },
-    {
-      "L": "T",
-      "code": "-",
-      "marks": "—",
-      "mode": "height (relative)",
-      "clean": 102,
-      "letter_ok": 101,
-      "el_tot": 102,
-      "el_ok": 101,
-      "letter_acc": 0.9901960784313726,
-      "el_acc": 0.9901960784313726,
-      "pred": "T",
-      "ok": true
-    },
-    {
-      "L": "U",
-      "code": "..-",
-      "marks": "··—",
-      "mode": "height (relative)",
-      "clean": 75,
-      "letter_ok": 75,
-      "el_tot": 225,
-      "el_ok": 225,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "U",
-      "ok": true
-    },
-    {
-      "L": "V",
-      "code": "...-",
-      "marks": "···—",
-      "mode": "height (relative)",
-      "clean": 61,
-      "letter_ok": 61,
-      "el_tot": 244,
-      "el_ok": 244,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "V",
-      "ok": true
-    },
-    {
-      "L": "W",
-      "code": ".--",
-      "marks": "·——",
-      "mode": "height (relative)",
-      "clean": 42,
-      "letter_ok": 42,
-      "el_tot": 126,
-      "el_ok": 126,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "W",
-      "ok": true
-    },
-    {
-      "L": "X",
-      "code": "-..-",
-      "marks": "—··—",
-      "mode": "height (relative)",
-      "clean": 8,
-      "letter_ok": 0,
-      "el_tot": 32,
-      "el_ok": 24,
-      "letter_acc": 0.0,
-      "el_acc": 0.75,
-      "pred": "Q",
-      "ok": false
-    },
-    {
-      "L": "Y",
-      "code": "-.--",
-      "marks": "—·——",
-      "mode": "width (absolute)",
-      "clean": 13,
-      "letter_ok": 0,
-      "el_tot": 52,
-      "el_ok": 13,
-      "letter_acc": 0.0,
-      "el_acc": 0.25,
-      "pred": "H",
-      "ok": false
-    },
-    {
-      "L": "Z",
-      "code": "--..",
-      "marks": "——··",
-      "mode": "height (relative)",
-      "clean": 37,
-      "letter_ok": 37,
-      "el_tot": 148,
-      "el_ok": 148,
-      "letter_acc": 1.0,
-      "el_acc": 1.0,
-      "pred": "Z",
-      "ok": true
-    }
-  ]
+  {
+   "L": "B",
+   "marks": "—···",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "C",
+   "marks": "—·—·",
+   "acc": 0.0,
+   "mode": "width",
+   "ok": false
+  },
+  {
+   "L": "D",
+   "marks": "—··",
+   "acc": 0.8415841584158416,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "E",
+   "marks": "·",
+   "acc": 1.0,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "F",
+   "marks": "··—·",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "G",
+   "marks": "——·",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "H",
+   "marks": "····",
+   "acc": 1.0,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "I",
+   "marks": "··",
+   "acc": 0.9803921568627451,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "J",
+   "marks": "·———",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "K",
+   "marks": "—·—",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "L",
+   "marks": "·—··",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "M",
+   "marks": "——",
+   "acc": 1.0,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "N",
+   "marks": "—·",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "O",
+   "marks": "———",
+   "acc": 1.0,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "P",
+   "marks": "·——·",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "Q",
+   "marks": "——·—",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "R",
+   "marks": "·—·",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "S",
+   "marks": "···",
+   "acc": 1.0,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "T",
+   "marks": "—",
+   "acc": 1.0,
+   "mode": "width",
+   "ok": true
+  },
+  {
+   "L": "U",
+   "marks": "··—",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "V",
+   "marks": "···—",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "W",
+   "marks": "·——",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "X",
+   "marks": "—··—",
+   "acc": 0.0,
+   "mode": "height",
+   "ok": false
+  },
+  {
+   "L": "Y",
+   "marks": "—·——",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  },
+  {
+   "L": "Z",
+   "marks": "——··",
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
+  }
+ ]
 }
