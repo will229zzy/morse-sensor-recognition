@@ -42,37 +42,55 @@
 - 仅 **C / X / Y** 未认出——那三份录制本身**点划没做出区分**(点按太重 / 划按太短),重录即可,不是方法问题。
 - 早期版本(仅相对峰高、无去趋势)为整字母 90.2%、纯字母无法判;加入**滚动去趋势 + 时长兜底**后提升到上表。
 
-## 可视化报告
+## 交付物
 
-- 本地打开 [`analysis/report.html`](analysis/report.html)(自带图表,双击即可看)。
-- 在线版(需作者分享访问):https://claude.ai/code/artifact/a4f2a675-930a-406b-ba43-120f8665f2e9
+- **PDF 报告** [`analysis/out/摩尔斯识别报告.pdf`](analysis/out/摩尔斯识别报告.pdf):封面概要 → 用波形讲识别原理 → 逐字母准确率 → **26 个字母逐一波形**(含点划标注、识别率、判据)。运行 `python make_report.py` 重新生成。
+- **网页报告** [`analysis/report.html`](analysis/report.html):双击即可看;在线版(需作者分享)https://claude.ai/code/artifact/a4f2a675-930a-406b-ba43-120f8665f2e9
+
+## 直接用在新数据上
+
+[`analysis/morse_sensor.py`](analysis/morse_sensor.py) 是一个**独立、无监督**的解码模块(不依赖文件名/真值),可直接喂新录制:
+
+```bash
+python morse_sensor.py 你的录制.csv          # 解码单个文件,打印字母与每次按压的点划
+python morse_sensor.py --batch 数据文件夹     # 批量按「首字母重复」评测准确率
+```
+
+```python
+from morse_sensor import decode_csv
+r = decode_csv("你的录制.csv")
+print(r.text)                    # 解码出的字母
+for lg in r.letters:             # 每个字母的点划、按压位置与大小
+    print(lg.letter, lg.symbol)
+```
+
+若仪器导出的 CSV 格式不同,只需改 `load_keysight_csv()` 一个函数;可调参数集中在文件顶部。
 
 ## 目录结构
 
 ```
 raw data/                每个字母一份「电阻—时间」CSV(原始数据)
 analysis/
-  morse_pipeline.py      加载 / 去毛刺 / 滚动去趋势 / 敲击检测 / 重复分组（核心库）
-  recognize_all.py       混合规则识别器(峰高 or 时长)+ 全 A–Z 结果
-  evaluate_final.py      最终指标汇总,输出 out/final.json
-  classify.py            逐文件 Otsu 二分(峰高)工具函数
-  recognize.py           识别单个文件(命令行 demo)
-  amp_study.py           证明「绝对峰高分不开点/划」
-  feature_test.py        比较峰高/峰宽/面积哪个全局判据最好(结论:峰宽)
-  example_fig.py         峰高示例图(D / F)
-  duration_fig.py        时长示例图(纯字母 I / M)
-  report.src.html        可视化报告模板
-  report.html            最终可视化报告(注入图片与数据后)
-  out/                   图表与中间结果(final.json 等)
+  morse_sensor.py        ★ 独立可复用解码模块(无监督,喂新数据即可用)
+  make_report.py         ★ 生成 PDF 报告(封面/原理/准确率/逐字母波形)
+  morse_pipeline.py      早期探索:加载 / 去毛刺 / 滚动去趋势 / 敲击检测 / 重复分组
+  recognize_all.py       早期探索:混合规则识别器 + 全 A–Z 结果
+  evaluate_final.py      早期探索:指标汇总,输出 out/final.json
+  classify.py            早期探索:逐文件 Otsu 二分(峰高)
+  amp_study.py           分析:证明「绝对峰高分不开点/划」
+  feature_test.py        分析:比较峰高/峰宽/面积(结论:峰宽)
+  example_fig.py / duration_fig.py   报告用示例图
+  report.src.html / report.html      网页版报告
+  out/                   PDF、图表与中间结果
 ```
 
 ## 复现
 
 ```bash
 cd analysis
-python3 recognize_all.py      # 全 A–Z 识别结果表(混合规则)
-python3 evaluate_final.py     # 最终指标:23/26、点划 97.9%、整字母 97.0%
-python3 recognize.py "../raw data/D-20 2026-08-19 13-50-36 0.csv"   # 识别单个文件
+python3 morse_sensor.py --batch "../raw data"   # 批量识别 + 准确率
+python3 make_report.py                          # 生成 PDF 报告
+python3 morse_sensor.py "../raw data/D-20 2026-08-19 13-50-36 0.csv"   # 单个文件
 ```
 
 ## 数据质量说明
