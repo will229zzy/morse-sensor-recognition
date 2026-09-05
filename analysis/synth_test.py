@@ -22,7 +22,7 @@ import morse_sensor as ms
 
 RAW = os.path.join(os.path.dirname(__file__), "..", "raw data")
 DT = 1.0 / 2.37                 # 统一时间栅格(真实采样约 2.37 Hz)
-PAD_S = 1.5                     # 每个字母片段前后留白
+PAD_S = 4.0                     # 每个字母片段前后留白(须足够长以保住按压拖尾,否则半高宽被低估)
 GAP_RANGE_S = (6.0, 9.0)       # 字母之间的间隔(明显大于字母内部点划间隔)
 EXCLUDE = {"K-30", "D13+F58"}   # 坏文件 / 混合文件不作素材
 
