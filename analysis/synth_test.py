@@ -104,6 +104,75 @@ def decode_with_boundaries(sec, rel, bounds):
     return "".join(out)
 
 
+def build_shape_library():
+    """收集真实的「元素形状」:每个点/划的(归一化峰高, 半高宽)。
+    峰高按各文件的划高度归一,去掉跨录制的振幅差异,只保留点/划比例与形状。"""
+    dots, dashes = [], []
+    for f in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
+        tok = os.path.basename(f).split(" ")[0]
+        L = ms.letter_from_filename(f)
+        if L is None or tok in EXCLUDE:
+            continue
+        sec, R = ms.load_keysight_csv(f); R = ms.deglitch(R); rel, _ = ms.detrend(R, sec)
+        taps = ms.detect_taps(sec, rel); code = ms.MORSE[L]; k = len(code)
+        reps = [r for r in ms._regroup_by_count(taps, k) if len(r) == k]
+        if not reps:
+            continue
+        dash_h = np.median([t.height for r in reps for t, c in zip(r, code) if c == "-"]) \
+            if "-" in code else np.median([t.height for r in reps for t in r])
+        if dash_h <= 0:
+            continue
+        for r in reps:
+            for t, c in zip(r, code):
+                (dashes if c == "-" else dots).append((t.height / dash_h, t.width))
+    return dots, dashes
+
+
+def synth_cadence_message(letters, shapes, elem_gap, letter_gap, rng):
+    """按统一节奏(元素间隔 elem_gap、字母间隔 letter_gap)合成消息,元素形状取自真实数据。"""
+    dots, dashes = shapes
+    centers, syms, t = [], [], 6.0
+    for L in letters:
+        for c in ms.MORSE[L]:
+            centers.append(t); syms.append(c)
+            t += elem_gap * rng.uniform(0.9, 1.1)
+        t += (letter_gap - elem_gap) * rng.uniform(0.9, 1.1)
+    T = t + 6
+    sec = np.arange(0, T, DT); rel = np.zeros_like(sec)
+    # 每条消息一套一致的点/划画像(模拟"一个人一口气按",同真实数据:会话内点/划各自稳定)
+    scale = rng.uniform(8, 13)
+    max_w = elem_gap * 0.55
+    dash_h = scale
+    dot_h = scale * rng.uniform(0.34, 0.46)                    # 点约为划的 0.4(真实比例)
+    dash_w = min(rng.uniform(2.3, 2.7), max_w)
+    dot_w = min(rng.uniform(1.6, 2.1), max_w)
+    for cc, c in zip(centers, syms):
+        h = (dash_h if c == "-" else dot_h) * rng.uniform(0.92, 1.08)
+        w = (dash_w if c == "-" else dot_w) * rng.uniform(0.9, 1.1)
+        sig = max(0.4, w) / 2.355
+        rel += h * np.exp(-((sec - cc) ** 2) / (2 * sig * sig))
+    rel += np.random.normal(0, 0.15, len(sec))
+    return sec, rel
+
+
+def run_cadence(n_messages=400, len_range=(3, 6), elem_gap=5.0, letter_gap=12.0, seed=5):
+    """统一节奏(她说的 ~5 秒)下的端到端测试。"""
+    rng = random.Random(seed); np.random.seed(seed)
+    shapes = build_shape_library()
+    alpha = [c for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"]
+    tot = edit = exact = 0; examples = []
+    for _ in range(n_messages):
+        letters = [rng.choice(alpha) for _ in range(rng.randint(*len_range))]
+        msg = "".join(letters)
+        sec, rel = synth_cadence_message(letters, shapes, elem_gap, letter_gap, rng)
+        d = decode_end_to_end(sec, rel)
+        tot += len(msg); edit += levenshtein(msg, d); exact += (d == msg)
+        if len(examples) < 30:
+            examples.append((msg, d, sec, rel))
+    return dict(n_messages=n_messages, tot_chars=tot, elem_gap=elem_gap, letter_gap=letter_gap,
+                cer=edit / tot, exact=exact / n_messages, examples=examples)
+
+
 def levenshtein(a, b):
     m, n = len(a), len(b)
     dp = list(range(n + 1))
