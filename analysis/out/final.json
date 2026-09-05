@@ -1,9 +1,9 @@
 {
  "summary": {
-  "letters_ok": 24,
-  "element_acc": 0.9864,
-  "per_rep": 0.9773,
-  "clean": 1672
+  "letters_ok": 26,
+  "element_acc": 0.9958,
+  "per_rep": 0.993,
+  "clean": 2571
  },
  "letters": [
   {
@@ -23,14 +23,14 @@
   {
    "L": "C",
    "marks": "—·—·",
-   "acc": 0.0,
-   "mode": "width",
-   "ok": false
+   "acc": 1.0,
+   "mode": "height",
+   "ok": true
   },
   {
    "L": "D",
    "marks": "—··",
-   "acc": 0.8415841584158416,
+   "acc": 0.8504672897196262,
    "mode": "height",
    "ok": true
   },
@@ -170,9 +170,9 @@
   {
    "L": "X",
    "marks": "—··—",
-   "acc": 0.0,
+   "acc": 1.0,
    "mode": "height",
-   "ok": false
+   "ok": true
   },
   {
    "L": "Y",

@@ -41,17 +41,19 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.signal import find_peaks, peak_widths
 
 # --------------------------------------------------------------------------- #
 # 可调参数(对新数据一般无需改动;若采样率或按压节奏差别很大可微调)
 # --------------------------------------------------------------------------- #
 DETREND_WINDOW_S = 40.0    # 估计缓慢静息基线的时间窗(秒);去掉慢漂移
 GLITCH_RATIO     = 3.0     # 电阻超过局部中位数这么多倍即判为接触故障,剔除
-TAP_MIN_WIDTH_S  = 0.6     # 一次有效按压的最短持续时间(秒)
-TAP_MERGE_GAP_S  = 0.9     # 间隔小于此的相邻鼓包视为同一次按压(去抖)
-HI_FRAC, LO_FRAC = 0.35, 0.15   # 检测阈值:相对该录制峰值分位数的高/低门限
-HEIGHT_RATIO_MIN = 1.6     # 高峰/矮峰均值之比 ≥ 此值 → 认为"有高矮对比"
-DASH_WIDTH_S     = 3.6     # 纯字母兜底:按压时长 ≥ 此值判为划,否则判为点
+PEAK_HEIGHT_FRAC = 0.20    # 峰高 ≥ 该录制 98 分位 × 此值 才算一次按压
+PEAK_PROM_FRAC   = 0.18    # 峰的"凸起度"门限(相对 98 分位);保证相邻峰之间有真正的谷
+PEAK_MIN_SEP_S   = 1.2     # 相邻两次按压至少间隔(秒)
+TAP_MIN_WIDTH_S  = 0.3     # 一次有效按压的最短半高宽(秒)
+HEIGHT_RATIO_MIN = 1.6     # 组内 最高/最矮 峰 ≥ 此值 → 认为"有高矮对比"
+DASH_WIDTH_S     = 2.25    # 纯字母兜底:半高宽(FWHM)≥ 此值判为划,否则判为点
 
 # 标准摩尔斯码表
 MORSE = {
@@ -156,40 +158,33 @@ def detrend(R: np.ndarray, sec: np.ndarray,
 # 2. 找按压
 # --------------------------------------------------------------------------- #
 def detect_taps(sec: np.ndarray, rel: np.ndarray) -> List[Tap]:
-    """用带滞回的阈值把每一次按压(高出静息的鼓包)找出来。"""
+    """找出每一次按压。
+
+    用峰检测(find_peaks)定位每个局部极大,并要求相邻峰之间有足够的"凸起度"(谷),
+    这样即使几次按压挨得很近、之间没回到静息,也能被分开——避免把一个字母的几次按压
+    误并成一个大团。每次按压的大小用峰高和半高宽(FWHM)刻画。
+    """
+    n = len(sec)
+    if n < 3:
+        return []
+    fs = n / (sec[-1] - sec[0])
     top = np.percentile(rel, 98)
-    hi = max(0.8, HI_FRAC * top)      # 必须超过它才算一次按压
-    lo = max(0.4, LO_FRAC * top)      # 用它界定按压的起止
-    above = rel > lo
-    d = np.diff(above.astype(int))
-    starts = list(np.where(d == 1)[0] + 1)
-    ends = list(np.where(d == -1)[0] + 1)
-    if above[0]:
-        starts = [0] + starts
-    if above[-1]:
-        ends = ends + [len(above)]
-
-    raw: List[Tap] = []
-    for s, e in zip(starts, ends):
-        seg = rel[s:e]
-        if seg.size == 0 or seg.max() < hi:
+    hmin = max(0.8, PEAK_HEIGHT_FRAC * top)
+    prom = max(0.5, PEAK_PROM_FRAC * top)
+    dist = max(1, int(round(fs * PEAK_MIN_SEP_S)))
+    pk, _ = find_peaks(rel, height=hmin, prominence=prom, distance=dist)
+    if len(pk) == 0:
+        return []
+    widths, _, lips, rips = peak_widths(rel, pk, rel_height=0.5)   # 半高宽
+    taps: List[Tap] = []
+    for p, w, li, ri in zip(pk, widths, lips, rips):
+        dur = float(w / fs)
+        if dur < TAP_MIN_WIDTH_S:
             continue
-        w = sec[e - 1] - sec[s]
-        if w < TAP_MIN_WIDTH_S:
-            continue
-        raw.append(Tap(sec[s], sec[e - 1], float(seg.max()), float(w)))
-
-    # 合并因短暂掉落而被拆开的同一次按压
-    merged: List[Tap] = []
-    for t in raw:
-        if merged and t.t_start - merged[-1].t_end < TAP_MERGE_GAP_S:
-            last = merged[-1]
-            last.t_end = t.t_end
-            last.height = max(last.height, t.height)
-            last.width = last.t_end - last.t_start
-        else:
-            merged.append(t)
-    return merged
+        ts = sec[int(np.clip(round(li), 0, n - 1))]
+        te = sec[int(np.clip(round(ri), 0, n - 1))]
+        taps.append(Tap(float(ts), float(te), float(rel[p]), dur))
+    return taps
 
 
 # --------------------------------------------------------------------------- #

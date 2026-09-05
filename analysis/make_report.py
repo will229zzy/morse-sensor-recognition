@@ -245,7 +245,7 @@ def page_method(pdf, per):
         axM.set_title(f"M = ——  时长≈{np.median([t.width for r in dm['clean'] for t in r]):.1f}s",
                       fontproperties=ZH, fontsize=10, loc="left", color=C_DASH)
     wrapped(fig, .08, .235,
-            "纯字母一份录制里没有高矮对比。但划按得更久(点≈3秒、划≈4秒),"
+            "纯字母一份录制里没有高矮对比。但划按得更久——每次按压更宽(半高宽更大),"
             "而按压时长是人的动作、跨录制稳定。注意上图:点字母 I 的峰甚至比划字母 M 还高——"
             "所以此时不能靠高度,只能靠时长。", 10.5, C_MUTE)
     wrapped(fig, .08, .13, "四个步骤:①找按压 → ②量峰高与时长 → ③小=点/大=划 → ④查摩尔斯码表。",
