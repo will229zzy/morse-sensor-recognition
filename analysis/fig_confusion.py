@@ -36,7 +36,7 @@ offdiag = [(LETTERS[i], LETTERS[j], cm[i, j]) for i in range(26) for j in range(
            if i != j and cm[i, j] > 0]
 print("非对角(真→判,次数):", offdiag if offdiag else "无(完全对角)")
 
-fig, ax = plt.subplots(figsize=(7.2, 6.6))
+fig, ax = plt.subplots(figsize=(9.5, 8.4))
 im = ax.imshow(cm, cmap="Purples", vmin=0)
 ax.set_xticks(range(26)); ax.set_xticklabels(list(LETTERS), fontsize=7)
 ax.set_yticks(range(26)); ax.set_yticklabels(list(LETTERS), fontsize=7)
@@ -45,13 +45,16 @@ ax.set_title(f"Accuracy: {acc:.1f}%", fontsize=13)
 import matplotlib.patches as mpatches
 for i in range(26):
     for j in range(26):
-        if cm[i, j]:
-            ax.text(j, i, int(cm[i, j]), ha="center", va="center", fontsize=5.5,
-                    color="white" if cm[i, j] > cm.max() * 0.5 else "#444")
-        if i != j and cm[i, j]:                       # 高亮识别错误的格子
+        v = int(cm[i, j])
+        if v == 0:
+            color = "#cfcfe0"                          # 0 用浅灰,全部写出、不省略
+        else:
+            color = "white" if cm[i, j] > cm.max() * 0.5 else "#333"
+        ax.text(j, i, v, ha="center", va="center", fontsize=4.6, color=color)
+        if i != j and v:                               # 高亮识别错误的格子
             ax.add_patch(mpatches.Rectangle((j - .5, i - .5), 1, 1, fill=False,
                                             edgecolor="#d81e05", lw=1.8))
-            ax.annotate(f"{LETTERS[i]}→{LETTERS[j]} ({int(cm[i,j])})",
+            ax.annotate(f"{LETTERS[i]}→{LETTERS[j]} ({v})",
                         xy=(j, i), xytext=(j + 3.5, i - 1.5), fontsize=8, color="#d81e05",
                         ha="left", va="center",
                         arrowprops=dict(arrowstyle="->", color="#d81e05", lw=1))
