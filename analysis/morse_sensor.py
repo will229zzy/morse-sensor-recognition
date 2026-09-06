@@ -229,25 +229,53 @@ def group_into_letters(taps: List[Tap]) -> List[List[Tap]]:
 # --------------------------------------------------------------------------- #
 # 4. 判点/划 —— 有对比用峰高,无对比用时长
 # --------------------------------------------------------------------------- #
-def classify_group(group: List[Tap]) -> str:
+def message_width_threshold(taps: List[Tap]) -> float:
+    """从整条消息(或整份录制)所有按压的时长分布,自适应地定出点/划的宽度分界。
+
+    时长(半高宽)在一条消息里比峰高稳定——划总是按得更久。若消息里同时有明显的长按压和
+    短按压(时长呈两档),就取两档之间的谷作为分界(适应不同人/节奏/传感器);若时长都相近
+    (消息全是点或全是划,少见),退回到标定的绝对分界 DASH_WIDTH_S。
+    """
+    if len(taps) < 4:
+        return DASH_WIDTH_S
+    w = np.array([t.width for t in taps])
+    thr, ratio = _otsu(w)
+    lo, hi = w[w < thr], w[w >= thr]
+    frac = min(len(lo), len(hi)) / len(w)
+    med = float(np.median(w))
+    # 仅当两档各占 ≥25%、比值明显、且阈值落在合理范围(不被少数超宽离群点带偏)时才采用
+    if frac >= 0.25 and ratio >= 1.5 and 1.2 <= thr <= 2.5 * med:
+        return float(thr)
+    return DASH_WIDTH_S
+
+
+def classify_group(group: List[Tap], width_thr: float = DASH_WIDTH_S) -> str:
     """就地给一个字母(一组按压)里的每个 tap 填上 '.'或'-',返回所用判据。
 
-    逐组判定,比全局统计稳健:
-      * 组内若出现明显的高矮对比(最高/最矮 ≥ HEIGHT_RATIO_MIN)——说明这个字母既有点又有
-        划,按【组内相对峰高】判(高的是划);
-      * 组内高矮相近(纯点或纯划的字母,没有对比)——按【绝对时长】判(划按得更久)。
+    逐组判定,且尺度自适应:
+      * 组内峰高有明显对比(最高/最矮 ≥ HEIGHT_RATIO_MIN)→【组内相对峰高】(高的是划);
+      * 否则组内时长有明显对比 →【组内相对时长】(长的是划;处理弱峰高的混合字母);
+      * 都无对比(纯点/纯划字母)→ 该字母元素本应同一种,用【组的中位时长】对比 width_thr
+        整组一次判定(width_thr 由 message_width_threshold 按整条消息给出,比写死的阈值更稳)。
     """
     if not group:
         return ""
     hs = np.array([t.height for t in group])
+    ws = np.array([t.width for t in group])
     if len(group) >= 2 and hs.max() / max(hs.min(), 1e-6) >= HEIGHT_RATIO_MIN:
         thr, _ = _otsu(hs)
         for t in group:
             t.symbol = "-" if t.height >= thr else "."
         return "相对峰高"
+    if len(group) >= 2 and ws.max() / max(ws.min(), 1e-6) >= HEIGHT_RATIO_MIN:
+        thr, _ = _otsu(ws)
+        for t in group:
+            t.symbol = "-" if t.width >= thr else "."
+        return "相对时长"
+    sym = "-" if float(np.median(ws)) >= width_thr else "."   # 纯字母:整组一次判
     for t in group:
-        t.symbol = "-" if t.width >= DASH_WIDTH_S else "."
-    return "绝对时长"
+        t.symbol = sym
+    return "时长(整组)"
 
 
 # --------------------------------------------------------------------------- #
@@ -260,11 +288,12 @@ def decode(sec: np.ndarray, R: np.ndarray) -> DecodeResult:
     rel, base = detrend(R, sec)
     taps = detect_taps(sec, rel)
     groups = group_into_letters(taps)
+    width_thr = message_width_threshold(taps)   # 按整条消息自适应的点/划时长分界
 
     letters: List[LetterGroup] = []
     rules: List[str] = []
     for g in groups:
-        rules.append(classify_group(g))
+        rules.append(classify_group(g, width_thr))
         sym = "".join(t.symbol for t in g)
         letters.append(LetterGroup(taps=g, symbol=sym, letter=MORSE_INV.get(sym, "?")))
     rule = Counter(rules).most_common(1)[0][0] if rules else ""
@@ -307,9 +336,10 @@ def evaluate_repeated_letter(path: str, expected_len: Optional[int] = None) -> d
     reps = _regroup_by_count(taps, k) if k else group_into_letters(taps)
     from collections import Counter
     ok, rules = 0, []
+    width_thr = message_width_threshold(taps)
     clean = [rep for rep in reps if not k or len(rep) == k]
     for rep in clean:
-        rules.append(classify_group(rep))
+        rules.append(classify_group(rep, width_thr))
         sym = "".join(t.symbol for t in rep)
         ok += (MORSE_INV.get(sym) == true_letter)
     n = len(clean)

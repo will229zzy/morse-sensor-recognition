@@ -83,10 +83,11 @@ def make_message(lib, letters, rng):
 
 def decode_end_to_end(sec, rel):
     taps = ms.detect_taps(sec, rel)
+    width_thr = ms.message_width_threshold(taps)
     groups = ms.group_into_letters(taps)
     out = []
     for g in groups:
-        ms.classify_group(g)
+        ms.classify_group(g, width_thr)
         out.append(ms.MORSE_INV.get("".join(t.symbol for t in g), "?"))
     return "".join(out)
 
@@ -94,12 +95,13 @@ def decode_end_to_end(sec, rel):
 def decode_with_boundaries(sec, rel, bounds):
     """给定真字母边界,只测点划分类。"""
     taps = ms.detect_taps(sec, rel)
+    width_thr = ms.message_width_threshold(taps)
     out = []
     for (t0, t1) in bounds:
         g = [t for t in taps if t0 <= t.t_center <= t1]
         if not g:
             out.append("?"); continue
-        ms.classify_group(g)
+        ms.classify_group(g, width_thr)
         out.append(ms.MORSE_INV.get("".join(t.symbol for t in g), "?"))
     return "".join(out)
 
@@ -153,6 +155,27 @@ def synth_cadence_message(letters, shapes, elem_gap, letter_gap, rng):
         rel += h * np.exp(-((sec - cc) ** 2) / (2 * sig * sig))
     rel += np.random.normal(0, 0.15, len(sec))
     return sec, rel
+
+
+WORDS = ["SOS", "HELP", "WATER", "ESCAPE", "MAYDAY", "FIRE", "DANGER", "RESCUE",
+         "NORTH", "SHARK", "HELLO", "WORLD", "THANK", "LOVE", "MORSE", "CODE",
+         "SENSOR", "TEST", "STOP", "SAVE", "LOST", "BOAT", "WIND", "COLD"]
+
+
+def run_words(words=None, repeats=6, elem_gap=5.0, letter_gap=12.0, seed=21):
+    """在真实英文单词上测端到端(真实消息就是单词,比随机字母更有代表性)。"""
+    import random
+    words = words or WORDS
+    rng = random.Random(seed); np.random.seed(seed)
+    shapes = build_shape_library()
+    ok = tot = ce = cn = 0; examples = {}
+    for w in words * repeats:
+        sec, rel = synth_cadence_message(list(w), shapes, elem_gap, letter_gap, rng)
+        d = decode_end_to_end(sec, rel)
+        tot += 1; ok += (d == w)
+        ce += levenshtein(w, d); cn += len(w)
+        examples.setdefault(w, d)
+    return dict(n=tot, exact=ok / tot, cer=ce / cn, examples=examples)
 
 
 def run_cadence(n_messages=400, len_range=(3, 6), elem_gap=5.0, letter_gap=12.0, seed=5):
