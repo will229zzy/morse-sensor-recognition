@@ -42,11 +42,19 @@ ax.set_xticks(range(26)); ax.set_xticklabels(list(LETTERS), fontsize=7)
 ax.set_yticks(range(26)); ax.set_yticklabels(list(LETTERS), fontsize=7)
 ax.set_xlabel("Predicted labels", fontsize=10); ax.set_ylabel("True labels", fontsize=10)
 ax.set_title(f"Accuracy: {acc:.1f}%", fontsize=13)
+import matplotlib.patches as mpatches
 for i in range(26):
     for j in range(26):
         if cm[i, j]:
             ax.text(j, i, int(cm[i, j]), ha="center", va="center", fontsize=5.5,
                     color="white" if cm[i, j] > cm.max() * 0.5 else "#444")
+        if i != j and cm[i, j]:                       # 高亮识别错误的格子
+            ax.add_patch(mpatches.Rectangle((j - .5, i - .5), 1, 1, fill=False,
+                                            edgecolor="#d81e05", lw=1.8))
+            ax.annotate(f"{LETTERS[i]}→{LETTERS[j]} ({int(cm[i,j])})",
+                        xy=(j, i), xytext=(j + 3.5, i - 1.5), fontsize=8, color="#d81e05",
+                        ha="left", va="center",
+                        arrowprops=dict(arrowstyle="->", color="#d81e05", lw=1))
 fig.colorbar(im, fraction=0.046, pad=0.04)
 plt.tight_layout()
 out = os.path.join(os.path.dirname(__file__), "out", "fig_e_confusion.png")
