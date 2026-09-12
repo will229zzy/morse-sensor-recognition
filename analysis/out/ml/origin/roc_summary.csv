@@ -1,0 +1,4 @@
+method,metric,value
+Rule-based (no training),micro_AUC,0.9991639988126669
+Features + Random Forest,micro_AUC,0.9999999718789545
+Transformer (press sequence),micro_AUC,0.9997114155821837
