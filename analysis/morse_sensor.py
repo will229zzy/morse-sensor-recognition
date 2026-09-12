@@ -9,6 +9,12 @@ morse_sensor.py — 把柔性电阻传感器上的「摩尔斯敲击」解码成
 用数字万用表(如 Keysight 34461A)记录「电阻(Ω)—时间」曲线,本模块从这条曲线里
 自动找出每一次敲击、判断点还是划、再按标准摩尔斯码表还原出字母。
 
+稳健性
+------
+探头接触不良/脱开时,电阻会跳到兆欧量级并持续几十秒。这种成片的故障段无法用滚动中位数剔除,
+而且会主导检测门限的统计,使真实按压全部落到门限之下——表现为"整份录制没有信号"且不报错。
+`valid_segments()` 会先把录制切成传感器正常工作的连续片段,逐段独立处理,以避免这种静默失效。
+
 核心思路(一条规则,两种情况)
 ------------------------------
 一次敲击有多"大",体现在两方面:峰更高(ΔR/R₀ 更大)、或按得更久(时长更长)。
@@ -48,6 +54,8 @@ from scipy.signal import find_peaks, peak_widths
 # --------------------------------------------------------------------------- #
 DETREND_WINDOW_S = 40.0    # 估计缓慢静息基线的时间窗(秒);去掉慢漂移
 GLITCH_RATIO     = 3.0     # 电阻超过局部中位数这么多倍即判为接触故障,剔除
+FAULT_RATIO      = 5.0     # 电阻偏离整段中位数超过这么多倍 → 判为仪器故障(探头脱开/短路)
+MIN_SEGMENT_S    = 10.0    # 故障切分后,短于此长度的片段不再分析
 PEAK_HEIGHT_FRAC = 0.20    # 峰高 ≥ 该录制 98 分位 × 此值 才算一次按压
 PEAK_PROM_FRAC   = 0.18    # 峰的"凸起度"门限(相对 98 分位);保证相邻峰之间有真正的谷
 PEAK_MIN_SEP_S   = 1.2     # 相邻两次按压至少间隔(秒)
@@ -133,6 +141,61 @@ def deglitch(R: np.ndarray, ratio: float = GLITCH_RATIO) -> np.ndarray:
     bad = (rel > ratio) | (rel < 1.0 / ratio)
     R[bad] = med[bad]
     return R
+
+
+def valid_segments(sec: np.ndarray, R: np.ndarray,
+                   ratio: float = FAULT_RATIO,
+                   min_s: float = MIN_SEGMENT_S) -> List[Tuple[int, int]]:
+    """把录制切成若干"传感器工作正常"的连续片段,返回各片段的索引区间 [i0, i1)。
+
+    为什么需要:探头脱开时电阻会跳到兆欧量级并**持续几十秒**。deglitch 用的是 9 点滚动
+    中位数,只能剔除单点尖峰;这种成片的故障段中位数本身就是故障值,剔不掉。而故障段一旦
+    留在数据里,它会主导后面算门限用的分位数统计,把门限抬到真实按压之上,于是整份录制
+    "看起来没有信号"——不会报错,只是安静地漏掉所有按压。
+
+    判据很宽松:实测正常录制里按压最多让电阻升到中位数的 1.2 倍,而故障段可达上千倍,
+    两者相差三个数量级,所以用 5 倍作分界不会误伤真实按压。
+    """
+    n = len(R)
+    if n < 3:
+        return [(0, n)]
+    med = float(np.median(R))
+    if not np.isfinite(med) or med <= 0:
+        return [(0, n)]
+    ok = (R <= ratio * med) & (R >= med / ratio)
+    if ok.all():
+        return [(0, n)]
+    segs, i = [], 0
+    while i < n:
+        if not ok[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and ok[j]:
+            j += 1
+        if sec[j - 1] - sec[i] >= min_s:
+            segs.append((i, j))
+        i = j
+    return segs or [(0, n)]
+
+
+def preprocess(sec: np.ndarray, R: np.ndarray) -> Tuple[np.ndarray, List[Tap], float]:
+    """完整前端:剔除故障段 → 逐段去毛刺/去漂移/找按压。返回(ΔR/R₀%, 按压表, 基线Ω)。
+
+    逐段处理而不是整段处理,是为了让采样率、基线和检测门限都只由"正常工作的那部分"决定。
+    故障段在返回的 rel 里填 0,时间轴保持原样,所以按压的时间戳仍然是录制内的绝对时间。
+    """
+    rel = np.zeros(len(sec), float)
+    taps: List[Tap] = []
+    bases = []
+    for i0, i1 in valid_segments(sec, R):
+        s, r = sec[i0:i1], deglitch(R[i0:i1])
+        seg_rel, base = detrend(r, s)
+        rel[i0:i1] = seg_rel
+        taps.extend(detect_taps(s, seg_rel))
+        bases.append(base)
+    taps.sort(key=lambda t: t.t_start)
+    return rel, taps, float(np.median(bases)) if bases else float("nan")
 
 
 def detrend(R: np.ndarray, sec: np.ndarray,
@@ -284,9 +347,7 @@ def classify_group(group: List[Tap], width_thr: float = DASH_WIDTH_S) -> str:
 def decode(sec: np.ndarray, R: np.ndarray) -> DecodeResult:
     """从(时间, 电阻)解码出字母:先切成一个个字母,再逐组判点/划。"""
     from collections import Counter
-    R = deglitch(R)
-    rel, base = detrend(R, sec)
-    taps = detect_taps(sec, rel)
+    rel, taps, base = preprocess(sec, R)
     groups = group_into_letters(taps)
     width_thr = message_width_threshold(taps)   # 按整条消息自适应的点/划时长分界
 

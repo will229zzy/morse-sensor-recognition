@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """面板(c):26 个字母的 ΔR/R₀ 波形叠加图(每字母多条重复叠加),风格仿参考论文 Fig.5c。"""
-import glob, os
+import glob, os, sys
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import morse_sensor as ms
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ml"))
+import dataset as ds          # 统一前端:跳过仪器故障段 + 拆开两字母混录文件
 
 RAW = os.path.join(os.path.dirname(__file__), "..", "raw data")
 N_OVER = 12            # 每字母叠加多少条重复
@@ -14,21 +16,18 @@ LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 # 26 个区分色
 CMAP = plt.cm.hsv(np.linspace(0, 1, 27))[:26]
 
+_BEST = {}
+for _f in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
+    for _L, _sec, _rel, _reps, _ in ds.letter_blocks(_f):
+        if _L not in _BEST or len(_reps) > len(_BEST[_L][2]):
+            _BEST[_L] = (_sec, _rel, _reps)
+
 
 def best_reps(L):
-    """取该字母干净重复最多的一份文件,返回若干条重复的(时间,波形)。"""
-    best = None
-    for f in glob.glob(os.path.join(RAW, f"{L}*.csv")) + glob.glob(os.path.join(RAW, f"{L} *.csv")):
-        if "K-30" in os.path.basename(f) or ms.letter_from_filename(f) != L:
-            continue
-        sec, R = ms.load_keysight_csv(f); R = ms.deglitch(R); rel, _ = ms.detrend(R, sec)
-        taps = ms.detect_taps(sec, rel); k = len(ms.MORSE[L])
-        reps = [r for r in ms._regroup_by_count(taps, k) if len(r) == k]
-        if best is None or len(reps) > len(best[2]):
-            best = (sec, rel, reps)
-    if not best:
+    """取该字母干净重复最多的一段录制,返回若干条重复的(时间,波形)。"""
+    if L not in _BEST:
         return []
-    sec, rel, reps = best
+    sec, rel, reps = _BEST[L]
     out = []
     for r in reps:
         i0 = int(np.searchsorted(sec, r[0].t_start - 1.5))

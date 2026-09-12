@@ -29,7 +29,6 @@ import morse_sensor as ms  # noqa: E402
 RAW = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "raw data")
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 L2I = {c: i for i, c in enumerate(LETTERS)}
-EXCLUDE = ("K-30", "D13+F58")        # 坏文件(接触故障)与两字母混合文件
 MAX_TAPS = 4                          # A-Z 最长 4 个元素
 RAW_LEN = 128                         # 原始波形重采样长度
 N_FOLDS = 5
@@ -90,6 +89,61 @@ def _raw_clip(sec, rel, rep, pad_s=1.5):
     return (g / max(g.max(), 1e-6)).astype(np.float32)
 
 
+def letters_in_name(base):
+    """文件名里记录了哪几个字母:'D13+F58 2026-…' → ['D','F'];'C-25-2 …' → ['C']。"""
+    head = base.split()[0]
+    out = [tok[:1].upper() for tok in head.split("+") if tok[:1].upper() in ms.MORSE]
+    return out or ([base[:1].upper()] if base[:1].upper() in ms.MORSE else [])
+
+
+def _clean_reps(taps, k):
+    return [r for r in ms._regroup_by_count(taps, k) if len(r) == k]
+
+
+def split_mixed(taps, letters):
+    """一份录制里顺序录了两个字母时,自动找出时间分界。
+
+    做法:扫描候选分界,使"前半按第一个字母的元素数切出的干净重复" +
+    "后半按第二个字母切出的干净重复"总数最大;两种先后顺序都试,取更优的那个。
+    不依赖对分界位置的先验,只依赖文件名告诉我们是哪两个字母。
+    """
+    best = None
+    for a, b in ((letters[0], letters[1]), (letters[1], letters[0])):
+        ka, kb = len(ms.MORSE[a]), len(ms.MORSE[b])
+        def score(cut):
+            ra = _clean_reps(taps[:cut], ka) if cut >= ka else []
+            rb = _clean_reps(taps[cut:], kb) if len(taps) - cut >= kb else []
+            return len(ra) + len(rb), ra, rb
+        coarse = range(0, len(taps) + 1, max(1, len(taps) // 40))
+        c0 = max(coarse, key=lambda c: score(c)[0])
+        lo, hi = max(0, c0 - len(taps) // 40), min(len(taps), c0 + len(taps) // 40)
+        cut = max(range(lo, hi + 1), key=lambda c: score(c)[0])
+        n, ra, rb = score(cut)
+        if best is None or n > best[0]:
+            best = (n, [(a, ra), (b, rb)], cut)
+    return best[1]
+
+
+def letter_blocks(path):
+    """一份录制 → [(字母, sec, rel, 重复列表, 点划时长分界), ...]。
+
+    统一入口:自动跳过持续性仪器故障段(preprocess),并自动拆开两字母混录的文件。
+    其它脚本(波形图、混淆矩阵、Origin 导出)都应该走这里,以保证口径一致。
+    """
+    base = os.path.basename(path)
+    names = letters_in_name(base)
+    if not names:
+        return []
+    sec, R = ms.load_keysight_csv(path)
+    rel, taps, _ = ms.preprocess(sec, R)
+    if not taps:
+        return []
+    wt = ms.message_width_threshold(taps)
+    blocks = (split_mixed(taps, names) if len(names) > 1
+              else [(names[0], _clean_reps(taps, len(ms.MORSE[names[0]])))])
+    return [(L, sec, rel, reps, wt) for L, reps in blocks if reps]
+
+
 def build(verbose=True):
     """扫描 raw data/,返回统一数据集字典。"""
     X_seq, lens, X_feat, X_raw, y = [], [], [], [], []
@@ -98,32 +152,26 @@ def build(verbose=True):
 
     for f in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
         base = os.path.basename(f)
-        L = ms.letter_from_filename(f)
-        if L is None or any(x in base for x in EXCLUDE):
+        names = letters_in_name(base)
+        if not names:
             continue
-        sec, R = ms.load_keysight_csv(f)
-        rel, _ = ms.detrend(ms.deglitch(R), sec)
-        taps = ms.detect_taps(sec, rel)
-        k = len(ms.MORSE[L])
-        reps = [r for r in ms._regroup_by_count(taps, k) if len(r) == k]
-        if not reps:
-            continue
-        wt = ms.message_width_threshold(taps)       # 无监督,不用标签
-        fid = len(files)
-        files.append(base)
-        for j, rep in enumerate(reps):
-            seq, n = _token_seq(rep)
-            X_seq.append(seq); lens.append(n)
-            X_feat.append(_features(rep))
-            X_raw.append(_raw_clip(sec, rel, rep))
-            y.append(L2I[L])
-            file_id.append(fid); rep_pos.append(j); n_in_file.append(len(reps))
-            # 方法① 规则解码的预测(无需训练,这里一并算好)
-            ms.classify_group(rep, wt)
-            sym = "".join(t.symbol for t in rep)
-            rule_pred.append(L2I.get(ms.MORSE_INV.get(sym, "?"), -1))
-        if verbose:
-            print(f"  {base[:34]:34s} {L}  reps={len(reps):3d}  width_thr={wt:.2f}s")
+        for L, sec, rel, reps, wt in letter_blocks(f):
+            fid = len(files)
+            files.append(base if len(names) == 1 else f"{base} [{L}]")
+            for j, rep in enumerate(reps):
+                seq, n = _token_seq(rep)
+                X_seq.append(seq); lens.append(n)
+                X_feat.append(_features(rep))
+                X_raw.append(_raw_clip(sec, rel, rep))
+                y.append(L2I[L])
+                file_id.append(fid); rep_pos.append(j); n_in_file.append(len(reps))
+                # 方法① 规则解码的预测(无需训练,这里一并算好)
+                ms.classify_group(rep, wt)
+                sym = "".join(t.symbol for t in rep)
+                rule_pred.append(L2I.get(ms.MORSE_INV.get(sym, "?"), -1))
+            if verbose:
+                print(f"  {files[fid][:38]:40s} {L}  reps={len(reps):3d}  "
+                      f"width_thr={wt:.2f}s")
 
     d = dict(
         X_seq=np.asarray(X_seq, np.float32), lens=np.asarray(lens, np.int64),

@@ -1,4 +1,4 @@
 method,metric,value
-Rule-based (no training),micro_AP,0.9940446857431526
-Features + Random Forest,micro_AP,0.9999992185507304
-Transformer (press sequence),micro_AP,0.9988861156012225
+Rule-based (no training),micro_AP,0.9943046498273699
+Features + Random Forest,micro_AP,0.9999994349954695
+Transformer (press sequence),micro_AP,0.9991791899472703

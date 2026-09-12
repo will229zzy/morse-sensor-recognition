@@ -18,6 +18,10 @@ import json
 import os
 import sys
 import time
+# macOS/Anaconda 上 ProcessPoolExecutor 会因 libomp 在子进程里重复初始化而崩溃(fork)
+# 或挂住(spawn);joblib 的 loky 后端专门处理了这个问题,并会自动把每个 worker 的
+# BLAS/OpenMP 线程数限为 1,正好避免过度订阅。
+from joblib import Parallel, delayed
 
 import numpy as np
 import torch
@@ -35,7 +39,11 @@ import dataset as D  # noqa: E402
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "out", "ml")
 SEED = 0
 N_CLS = 26
-torch.set_num_threads(4)          # 小张量下线程过多反而变慢
+# 这些模型的张量很小,加线程收益很差;而折与折之间完全独立,所以用多进程并行。
+# 每个进程只用少量线程,避免 11 核上过度订阅。
+N_WORKERS = max(1, min(11, (os.cpu_count() or 4)))
+THREADS_PER_WORKER = 2
+torch.set_num_threads(THREADS_PER_WORKER)
 TRAIN_SIZES = [0.1, 0.325, 0.55, 0.775, 1.0]      # 与她上篇 learning_curve 一致
 EPOCHS = 200
 PATIENCE = 30
@@ -263,71 +271,144 @@ def metrics(y, pred):
 
 
 # --------------------------------------------------------------------------- #
+# 并行作业单元:折与折之间、学习曲线各点之间都完全独立
+# --------------------------------------------------------------------------- #
+METHODS = ["rule", "rf", "transformer", "svm", "bilstm", "cnn_raw"]
+_CACHE = {}
+
+
+def _data():
+    """每个工作进程各自加载一次数据集(1.3 MB,比通过管道传更省)。"""
+    if "d" not in _CACHE:
+        npz = os.path.join(OUT, "dataset.npz")
+        _CACHE["d"] = (dict(np.load(npz, allow_pickle=True))
+                       if os.path.exists(npz) else D.build(False))
+    return _CACHE["d"]
+
+
+def _fold_indices(d, k):
+    va_fold = (k + 1) % D.N_FOLDS
+    tr_all, te = D.split(d, k)
+    va = tr_all[d["fold"][tr_all] == va_fold]
+    tr = tr_all[d["fold"][tr_all] != va_fold]
+    return tr, va, te
+
+
+def _fit_feature_models(d, y, fit_idx, te, want_proba=True):
+    """手工特征上的随机森林 + SVM。返回(预测, 得分, 特征重要性)。"""
+    rf = RandomForestClassifier(n_estimators=500, random_state=SEED,
+                                n_jobs=THREADS_PER_WORKER)
+    rf.fit(d["X_feat"][fit_idx], y[fit_idx])
+    out = {"rf": (rf.predict(d["X_feat"][te]),
+                  rf.predict_proba(d["X_feat"][te]) if want_proba else None)}
+    # SVM 是附带项,不做 Platt 概率校准(26 类下极慢);得分用 decision_function 折算
+    sv = make_pipeline(StandardScaler(), SVC(C=10, gamma="scale", random_state=SEED))
+    sv.fit(d["X_feat"][fit_idx], y[fit_idx])
+    sc = None
+    if want_proba:
+        df = sv.decision_function(d["X_feat"][te])
+        e = np.exp(df - df.max(1, keepdims=True))
+        sc = e / e.sum(1, keepdims=True)
+    out["svm"] = (sv.predict(d["X_feat"][te]), sc)
+    return out, rf.feature_importances_
+
+
+def _fold_job(job):
+    """第 k 折的一个部分。拆细是为了把 11 个核填满(整折只有 5 个作业,会空转一半)。
+
+    part='feat' → 规则解码 + 随机森林 + SVM(都很快,放一起);
+    part='transformer' / 'bilstm' / 'cnn_raw' → 各自一个作业(训练耗时,单独并行)。
+    """
+    k, part = job
+    torch.set_num_threads(THREADS_PER_WORKER)
+    d = _data(); y = d["y"]
+    tr, va, te = _fold_indices(d, k)
+    sizes = (len(tr), len(va), len(te))
+    if part == "feat":
+        res = {"rule": (d["rule_pred"][te], rule_scores(d, te))}   # ① 无需训练
+        feat, imp = _fit_feature_models(d, y, np.concatenate([tr, va]), te)  # ② 不需早停
+        res.update(feat)
+        return k, part, te, res, imp, {}, sizes
+    if part == "cnn_raw":                                          # 消融:无物理前端
+        p, h = train_raw_model(d["X_raw"][tr], y[tr], d["X_raw"][va], y[va],
+                               d["X_raw"][te], record_history=(k == 0))
+    else:                                                          # ③ 序列模型
+        p, h = train_seq_model(part, d["X_seq"][tr], d["lens"][tr], y[tr],
+                               d["X_seq"][va], d["lens"][va], y[va],
+                               d["X_seq"][te], d["lens"][te], record_history=(k == 0))
+    return k, part, te, {part: (p.argmax(1), p)}, None, ({part: h} if h else {}), sizes
+
+
+def _lc_subset(d, tr, frac, k):
+    """按 (frac, k) 定种子抽训练子集,使抽样与作业执行顺序无关、可复现。"""
+    if frac >= 1.0:
+        return tr
+    rng = np.random.RandomState(SEED * 7919 + int(frac * 1000) * 13 + k)
+    return rng.choice(tr, max(N_CLS, int(len(tr) * frac)), replace=False)
+
+
+def _lc_job(job):
+    """学习曲线的一个格点:(训练集比例, 折号, 模型)。逐模型拆开以便负载均衡。"""
+    frac, k, model = job
+    torch.set_num_threads(THREADS_PER_WORKER)
+    d = _data(); y = d["y"]
+    tr, va, te = _fold_indices(d, k)
+    sub = _lc_subset(d, tr, frac, k)
+    if model in ("rf", "svm"):
+        feat, _ = _fit_feature_models(d, y, np.concatenate([sub, va]), te,
+                                      want_proba=False)
+        acc = accuracy_score(y[te], feat[model][0])
+    elif model == "cnn_raw":
+        p, _h = train_raw_model(d["X_raw"][sub], y[sub], d["X_raw"][va], y[va],
+                                d["X_raw"][te], epochs=150)
+        acc = accuracy_score(y[te], p.argmax(1))
+    else:
+        p, _h = train_seq_model(model, d["X_seq"][sub], d["lens"][sub], y[sub],
+                                d["X_seq"][va], d["lens"][va], y[va],
+                                d["X_seq"][te], d["lens"][te], epochs=150)
+        acc = accuracy_score(y[te], p.argmax(1))
+    return frac, k, model, float(acc)
+
+
+# --------------------------------------------------------------------------- #
 # 主流程
 # --------------------------------------------------------------------------- #
 def main():
     t0 = time.time()
     os.makedirs(OUT, exist_ok=True)
-    npz = os.path.join(OUT, "dataset.npz")
-    d = dict(np.load(npz, allow_pickle=True)) if os.path.exists(npz) else D.build(False)
+    d = _data()
     y = d["y"]; N = len(y)
+    print(f"样本 {N}  字母 {len(np.unique(y))}  折 {D.N_FOLDS}  "
+          f"并行 {N_WORKERS} 进程 × {THREADS_PER_WORKER} 线程")
 
-    METHODS = ["rule", "rf", "transformer", "svm", "bilstm", "cnn_raw"]
     pred = {m: -np.ones(N, np.int64) for m in METHODS}
     prob = {m: np.zeros((N, N_CLS), np.float32) for m in METHODS}
     fold_rows, histories, importances = [], {}, []
 
+    # 最慢的作业先投,尾部才不会只剩一个大作业在跑
+    parts = ["cnn_raw", "transformer", "bilstm", "feat"]
+    jobs = [(k, p) for p in parts for k in range(D.N_FOLDS)]
+    out = Parallel(n_jobs=N_WORKERS, backend="loky", verbose=5)(
+        delayed(_fold_job)(j) for j in jobs)
+    fold_te, fold_sizes = {}, {}
+    for k, part, te, res, imp, hist, sizes in out:
+        fold_te[k], fold_sizes[k] = te, sizes
+        histories.update(hist)
+        if imp is not None:
+            importances.append(imp)
+        for m, (pm, sm) in res.items():
+            pred[m][te] = pm
+            if sm is not None:
+                prob[m][te] = sm
     for k in range(D.N_FOLDS):
-        va_fold = (k + 1) % D.N_FOLDS
-        tr_all, te = D.split(d, k)
-        va = tr_all[d["fold"][tr_all] == va_fold]
-        tr = tr_all[d["fold"][tr_all] != va_fold]
-        print(f"\n── 折 {k}: 训练 {len(tr)}  验证 {len(va)}  测试 {len(te)}")
-
-        # ① 规则解码:无需训练
-        pred["rule"][te] = d["rule_pred"][te]
-        prob["rule"][te] = rule_scores(d, te)
-
-        # ② 手工特征 + 随机森林 / SVM(训练集 = 训练折 + 验证折,它们不需要早停)
-        fit_idx = np.concatenate([tr, va])
-        rf = RandomForestClassifier(n_estimators=500, random_state=SEED, n_jobs=-1)
-        rf.fit(d["X_feat"][fit_idx], y[fit_idx])
-        pred["rf"][te] = rf.predict(d["X_feat"][te])
-        prob["rf"][te] = rf.predict_proba(d["X_feat"][te])
-        importances.append(rf.feature_importances_)
-
-        # SVM 是附带项,不做 Platt 概率校准(26 类下极慢);得分用 decision_function 折算
-        sv = make_pipeline(StandardScaler(), SVC(C=10, gamma="scale", random_state=SEED))
-        sv.fit(d["X_feat"][fit_idx], y[fit_idx])
-        pred["svm"][te] = sv.predict(d["X_feat"][te])
-        df = sv.decision_function(d["X_feat"][te])
-        prob["svm"][te] = np.exp(df - df.max(1, keepdims=True)) / \
-            np.exp(df - df.max(1, keepdims=True)).sum(1, keepdims=True)
-
-        # ③ Transformer(+ BiLSTM 对照)
-        for kind in ("transformer", "bilstm"):
-            p, hist = train_seq_model(
-                kind, d["X_seq"][tr], d["lens"][tr], y[tr],
-                d["X_seq"][va], d["lens"][va], y[va],
-                d["X_seq"][te], d["lens"][te], record_history=(k == 0))
-            prob[kind][te] = p
-            pred[kind][te] = p.argmax(1)
-            if k == 0:
-                histories[kind] = hist
-
-        # (消融) 无物理前端:原始波形 + 1D-CNN(她上篇架构)
-        p, hist = train_raw_model(d["X_raw"][tr], y[tr], d["X_raw"][va], y[va],
-                                  d["X_raw"][te], record_history=(k == 0))
-        prob["cnn_raw"][te] = p
-        pred["cnn_raw"][te] = p.argmax(1)
-        if k == 0:
-            histories["cnn_raw"] = hist
-
+        te, sizes = fold_te[k], fold_sizes[k]
+        print(f"\n── 折 {k}: 训练 {sizes[0]}  验证 {sizes[1]}  测试 {sizes[2]}"
+              f"   [{time.time()-t0:.0f}s]")
         for m in METHODS:
             r = metrics(y[te], pred[m][te]); r.update(fold=k, method=m)
             fold_rows.append(r)
-            print(f"   {m:12s} acc={r['accuracy']*100:6.2f}%  macroF1={r['macro_f1']:.4f}"
-                  f"   [{time.time()-t0:.0f}s]")
+            print(f"   {m:12s} acc={r['accuracy']*100:6.2f}%  "
+                  f"macroF1={r['macro_f1']:.4f}")
 
     # ---- 汇总 ----
     print("\n" + "=" * 62)
@@ -343,37 +424,19 @@ def main():
     cms = {m: confusion_matrix(y, pred[m], labels=range(N_CLS)) for m in METHODS}
 
     # ---- 学习曲线:准确率 vs 训练集大小(与她上篇同款) ----
-    print("\n── 学习曲线(准确率 vs 训练集比例)")
-    lc = {m: [] for m in ["rf", "transformer", "svm", "bilstm", "cnn_raw"]}
-    rng = np.random.RandomState(SEED)
-    for frac in TRAIN_SIZES:
-        accs = {m: [] for m in lc}
-        for k in range(D.N_FOLDS):
-            va_fold = (k + 1) % D.N_FOLDS
-            tr_all, te = D.split(d, k)
-            va = tr_all[d["fold"][tr_all] == va_fold]
-            tr = tr_all[d["fold"][tr_all] != va_fold]
-            sub = tr if frac >= 1.0 else rng.choice(tr, max(N_CLS, int(len(tr) * frac)),
-                                                    replace=False)
-            fit_idx = np.concatenate([sub, va])
-            m2 = RandomForestClassifier(n_estimators=500, random_state=SEED, n_jobs=-1)
-            m2.fit(d["X_feat"][fit_idx], y[fit_idx])
-            accs["rf"].append(accuracy_score(y[te], m2.predict(d["X_feat"][te])))
-            s2 = make_pipeline(StandardScaler(), SVC(C=10, gamma="scale", random_state=SEED))
-            s2.fit(d["X_feat"][fit_idx], y[fit_idx])
-            accs["svm"].append(accuracy_score(y[te], s2.predict(d["X_feat"][te])))
-            for kind in ("transformer", "bilstm"):
-                p, _ = train_seq_model(kind, d["X_seq"][sub], d["lens"][sub], y[sub],
-                                       d["X_seq"][va], d["lens"][va], y[va],
-                                       d["X_seq"][te], d["lens"][te], epochs=150)
-                accs[kind].append(accuracy_score(y[te], p.argmax(1)))
-            p, _ = train_raw_model(d["X_raw"][sub], y[sub], d["X_raw"][va], y[va],
-                                   d["X_raw"][te], epochs=150)
-            accs["cnn_raw"].append(accuracy_score(y[te], p.argmax(1)))
-        for m in lc:
-            lc[m].append(float(np.mean(accs[m])))
-        print(f"   frac={frac:<6} " + "  ".join(f"{m}={np.mean(accs[m])*100:.2f}%" for m in lc)
-              + f"   [{time.time()-t0:.0f}s]")
+    keys = ["cnn_raw", "transformer", "bilstm", "rf", "svm"]     # 慢的排前面
+    jobs = [(f, k, m) for m in keys for f in TRAIN_SIZES for k in range(D.N_FOLDS)]
+    print(f"\n── 学习曲线(准确率 vs 训练集比例)—— {len(jobs)} 个作业并行")
+    grid = {}
+    for frac, k, m, a in Parallel(n_jobs=N_WORKERS, backend="loky", verbose=5)(
+            delayed(_lc_job)(j) for j in jobs):
+        grid[(frac, k, m)] = a
+    print(f"   {len(jobs)} 个作业完成  [{time.time()-t0:.0f}s]")
+    lc = {m: [float(np.mean([grid[(f, k, m)] for k in range(D.N_FOLDS)]))
+              for f in TRAIN_SIZES] for m in keys}
+    print("\n   折平均:")
+    for i, f in enumerate(TRAIN_SIZES):
+        print(f"   frac={f:<6} " + "  ".join(f"{m}={lc[m][i]*100:.2f}%" for m in keys))
 
     # ---- 保存 ----
     import pandas as pd

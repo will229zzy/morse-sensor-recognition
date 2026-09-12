@@ -8,38 +8,30 @@
   out/origin/per_letter_accuracy.csv  逐字母准确率(条形图用)
   out/origin/README.txt               Origin 画图说明
 """
-import glob, os
+import glob, os, sys
 import numpy as np
 import pandas as pd
 import morse_sensor as ms
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ml"))
+import dataset as ds          # 统一前端:跳过仪器故障段 + 拆开两字母混录文件
 
 RAW = os.path.join(os.path.dirname(__file__), "..", "raw data")
 OUT = os.path.join(os.path.dirname(__file__), "out", "origin")
 WAVE = os.path.join(OUT, "waveforms")
 os.makedirs(WAVE, exist_ok=True)
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-EXCLUDE = ("K-30", "D13+F58")
 N_REPS = 15                        # 每字母导出多少条重复(叠加曲线)
 DT = 1 / 2.37
 
-
-def clean_reps(path):
-    sec, R = ms.load_keysight_csv(path); R = ms.deglitch(R); rel, _ = ms.detrend(R, sec)
-    taps = ms.detect_taps(sec, rel); k = len(ms.MORSE[ms.letter_from_filename(path)])
-    reps = [r for r in ms._regroup_by_count(taps, k) if len(r) == k]
-    return sec, rel, reps, taps
+BLOCKS = {}                        # 字母 -> 干净重复最多的那段录制
+for _f in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
+    for _L, _sec, _rel, _reps, _wt in ds.letter_blocks(_f):
+        if _L not in BLOCKS or len(_reps) > len(BLOCKS[_L][2]):
+            BLOCKS[_L] = (_sec, _rel, _reps, _wt)
 
 
 def best_file(L):
-    best = None
-    for f in glob.glob(os.path.join(RAW, f"{L}*.csv")) + glob.glob(os.path.join(RAW, f"{L} *.csv")):
-        b = os.path.basename(f)
-        if ms.letter_from_filename(f) != L or any(x in b for x in EXCLUDE):
-            continue
-        sec, rel, reps, taps = clean_reps(f)
-        if best is None or len(reps) > len(best[2]):
-            best = (sec, rel, reps, taps)
-    return best
+    return BLOCKS.get(L)
 
 
 # ---------- (c) 每字母波形 CSV ----------
@@ -70,16 +62,12 @@ for L in LETTERS:
 idx = {c: i for i, c in enumerate(LETTERS)}
 cm = np.zeros((26, 26), int)
 for f in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
-    L = ms.letter_from_filename(f); b = os.path.basename(f)
-    if L is None or any(x in b for x in EXCLUDE):
-        continue
-    sec, rel, reps, taps = clean_reps(f)
-    wt = ms.message_width_threshold(taps)
-    for r in reps:
-        ms.classify_group(r, wt)
-        p = ms.MORSE_INV.get("".join(t.symbol for t in r))
-        if p in idx:
-            cm[idx[L], idx[p]] += 1
+    for L, sec, rel, reps, wt in ds.letter_blocks(f):
+        for r in reps:
+            ms.classify_group(r, wt)
+            p = ms.MORSE_INV.get("".join(t.symbol for t in r))
+            if p in idx:
+                cm[idx[L], idx[p]] += 1
 
 dfcm = pd.DataFrame(cm, index=list(LETTERS), columns=list(LETTERS))
 dfcm.index.name = "True\\Pred"

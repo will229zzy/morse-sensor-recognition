@@ -27,8 +27,12 @@ prominence,取半高宽 FWHM)。**只有"决策环节"不同**,所以对比是�
 ## 样本与标签
 
 - 一个样本 = **一次完整的字母敲击**(one repetition)。
-- 共 **2530** 个样本、**26** 个字母、**34** 份录制。
-- 排除:`K-30`(接触故障)、`D13+F58`(两字母混合录制)。
+- 共 **2661** 个样本、**26** 个字母,**36 份录制全部纳入,没有剔除任何文件**。
+- 两类特殊情况由代码自动处理,不需要人工排除:
+  - `K-30` 末尾 90 秒探头开路 → `morse_sensor.valid_segments()` 切掉故障段,
+    保留其前 544 秒的 30 次 K;
+  - `D13+F58` 一份录制里顺序录了两个字母 → `dataset.split_mixed()` 自动找时间分界,
+    拆出 33 次 D 与 68 次 F。
 
 ## 划分协议(严格,防泄漏)
 
@@ -51,9 +55,14 @@ per-class AUC、micro-average AP。
 ```bash
 cd analysis/ml
 python dataset.py      # 建统一数据集 → ../out/ml/dataset.npz
-python benchmark.py    # 三方法 5 折对比 → ../out/ml/results.npz + *.csv
+python benchmark.py    # 三方法 5 折对比 → ../out/ml/results.npz + *.csv   (约 13 分钟)
 python figures.py      # 全套结果图 → ../out/ml/figures/ + ../out/ml/origin/
 ```
+
+`benchmark.py` 用 joblib/loky 把 20 个折作业 + 125 个学习曲线作业铺满所有核心
+(本机 11 核,实测 ~894% CPU)。**不要**改用 `concurrent.futures.ProcessPoolExecutor`:
+macOS/Anaconda 上它会因 libomp 在子进程里重复初始化而崩溃(fork)或挂住(spawn)。
+并行不改变结果——抽样按 `(比例, 折号)` 定种子,与作业执行顺序无关。
 
 ## 输出
 

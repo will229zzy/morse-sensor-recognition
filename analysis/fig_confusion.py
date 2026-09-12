@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 """面板(e):用我们自己的规则法(可解释)得到 26×26 混淆矩阵 + 总准确率,仿参考论文 Fig.5e。
 每个干净重复独立解码,预测字母 vs 真实字母。无需训练、无需黑箱。"""
-import glob, os
+import glob, os, sys
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import morse_sensor as ms
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "ml"))
+import dataset as ds          # 统一前端:跳过仪器故障段 + 拆开两字母混录文件
 
 RAW = os.path.join(os.path.dirname(__file__), "..", "raw data")
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -15,20 +17,13 @@ idx = {c: i for i, c in enumerate(LETTERS)}
 
 cm = np.zeros((26, 26), int)
 for f in sorted(glob.glob(os.path.join(RAW, "*.csv"))):
-    L = ms.letter_from_filename(f)
-    base = os.path.basename(f)
-    if L is None or "K-30" in base or "D13+F58" in base:   # 排除坏文件与混合文件
-        continue
-    sec, R = ms.load_keysight_csv(f); R = ms.deglitch(R); rel, _ = ms.detrend(R, sec)
-    taps = ms.detect_taps(sec, rel); k = len(ms.MORSE[L])
-    wt = ms.message_width_threshold(taps)
-    reps = [r for r in ms._regroup_by_count(taps, k) if len(r) == k]
-    for r in reps:
-        ms.classify_group(r, wt)
-        pred = ms.MORSE_INV.get("".join(t.symbol for t in r), None)
-        if pred in idx:
-            cm[idx[L], idx[pred]] += 1
-        # 无效码计入自身行的"漏判"——这里跳过(极少)
+    for L, sec, rel, reps, wt in ds.letter_blocks(f):
+        for r in reps:
+            ms.classify_group(r, wt)
+            pred = ms.MORSE_INV.get("".join(t.symbol for t in r), None)
+            if pred in idx:
+                cm[idx[L], idx[pred]] += 1
+            # 无效码计入自身行的"漏判"——这里跳过(极少)
 
 total = cm.sum(); correct = np.trace(cm); acc = correct / total * 100
 print(f"总样本 {total},正确 {correct},准确率 {acc:.1f}%")
