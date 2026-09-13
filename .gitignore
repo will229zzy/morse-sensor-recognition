@@ -15,3 +15,7 @@ __pycache__/
 
 # 中间数据集/结果二进制(可由 analysis/ml/ 的脚本重新生成)
 *.npz
+
+# 交付包(由 analysis/make_package.py 生成,内容全是其它目录里已有文件的副本)
+analysis/out/交付包/
+analysis/out/摩尔斯识别_交付包_*.zip
