@@ -61,6 +61,7 @@ PEAK_PROM_FRAC   = 0.18    # 峰的"凸起度"门限(相对 98 分位);保证相
 PEAK_MIN_SEP_S   = 1.2     # 相邻两次按压至少间隔(秒)
 TAP_MIN_WIDTH_S  = 0.3     # 一次有效按压的最短半高宽(秒)
 HEIGHT_RATIO_MIN = 1.6     # 组内 最高/最矮 峰 ≥ 此值 → 认为"有高矮对比"
+GAP_LEVEL_RATIO  = 1.6     # 相邻两层间隔(相对值)的均值之比 ≥ 此值,才认为是不同层级
 DASH_WIDTH_S     = 2.25    # 纯字母兜底:半高宽(FWHM)≥ 此值判为划,否则判为点
 
 # 标准摩尔斯码表
@@ -110,7 +111,8 @@ class DecodeResult:
     taps: List[Tap]
     letters: List[LetterGroup]
     rule: str = ""                        # 实际采用的判据:'相对峰高' 或 '绝对时长'
-    text: str = ""                        # 拼接后的解码结果
+    text: str = ""                        # 解码结果,单词之间用空格隔开
+    words: List[List[LetterGroup]] = field(default_factory=list)   # 按单词分好的字母
 
 
 # --------------------------------------------------------------------------- #
@@ -275,24 +277,109 @@ def _otsu(values: np.ndarray) -> Tuple[float, float]:
     return float(best_t), float(ratio)
 
 
-def group_into_letters(taps: List[Tap]) -> List[List[Tap]]:
-    """按相邻按压之间的间隔把 taps 切成一个个字母。
+def _otsu3(values: np.ndarray) -> Tuple[float, float]:
+    """一维三类 Otsu:返回两个阈值 t1 < t2,使三类的类间方差最大。
 
-    间隔天然有两个尺度:字母内部(点划之间)的短间隔,和字母之间的长间隔。用 Otsu 在
-    间隔上找分界即可,无需事先知道字母是什么。"""
-    if len(taps) <= 1:
-        return [taps] if taps else []
-    gaps = np.array([taps[i + 1].t_start - taps[i].t_end for i in range(len(taps) - 1)])
-    thr, ratio = _otsu(gaps)
-    if ratio < 1.8:          # 间隔没有明显两个尺度 → 视作同一个字母(或单字母重复由调用方处理)
-        thr = np.inf
-    groups, cur = [], [taps[0]]
-    for i, g in enumerate(gaps):
-        if g > thr:
-            groups.append(cur); cur = []
-        cur.append(taps[i + 1])
-    groups.append(cur)
-    return groups
+    在至多 300 个分位点上穷举,O(m²) 且已向量化,对上千个间隔也很快。
+    """
+    s = np.sort(np.asarray(values, float))
+    if len(s) > 300:
+        s = np.quantile(s, np.linspace(0, 1, 300))
+    n = len(s)
+    if n < 3:
+        return float(s[-1]), float(s[-1])
+    c = np.concatenate([[0.0], np.cumsum(s)])
+    mu = c[-1] / n
+    best, bt = -1.0, (float(s[0]), float(s[-1]))
+    for i in range(1, n - 1):
+        j = np.arange(i + 1, n)
+        m0 = c[i] / i
+        m1 = (c[j] - c[i]) / (j - i)
+        m2 = (c[n] - c[j]) / (n - j)
+        var = i * (m0 - mu) ** 2 + (j - i) * (m1 - mu) ** 2 + (n - j) * (m2 - mu) ** 2
+        k = int(np.argmax(var))
+        if var[k] > best:
+            best = float(var[k])
+            bt = (0.5 * (s[i - 1] + s[i]), 0.5 * (s[j[k] - 1] + s[j[k]]))
+    return float(bt[0]), float(bt[1])
+
+
+def silence_gaps(taps: List[Tap]) -> np.ndarray:
+    """相邻两次按压之间的静默时长(秒)。"""
+    if len(taps) < 2:
+        return np.zeros(0)
+    g = np.array([taps[i + 1].t_start - taps[i].t_end for i in range(len(taps) - 1)])
+    return np.clip(g, 1e-3, None)          # 相邻半高宽偶尔重叠,避免负值
+
+
+def relative_gaps(taps: List[Tap]) -> np.ndarray:
+    """相邻两次按压之间的静默时长 ÷ 这两次按压的平均时长(无量纲)。
+
+    用来对付"按得久、停得也久"的节奏:9 月的单词录制里,O(———)两个划之间静默
+    5.0 秒,和两个点所在的字母之间(5.5 秒)几乎一样长,只看秒数会把 SOS 读成 STTTS。
+    除以两侧按压时长之后,字母内约 1.1、字母间约 2.3、单词间约 5.4,层级清楚。
+    """
+    if len(taps) < 2:
+        return np.zeros(0)
+    g = np.array([(taps[i + 1].t_start - taps[i].t_end)
+                  / max(0.5 * (taps[i].width + taps[i + 1].width), 1e-6)
+                  for i in range(len(taps) - 1)])
+    return np.clip(g, 1e-3, None)          # 相邻半高宽偶尔重叠,避免负值
+
+
+def gap_levels(g: np.ndarray) -> Tuple[float, float]:
+    """在相对间隔上找(字母分界, 单词分界)两个阈值;某层不存在时对应返回 inf。
+
+    先试三层(点划间 / 字母间 / 单词间);相邻两层均值之比都要 ≥ GAP_LEVEL_RATIO 才采信,
+    否则退回两层(只分字母),再不行就视作一个整体。这样一整段多词消息、只按一个词的
+    短消息、甚至单个字母都能处理。只有两层时无法区分"字母间"和"单词间",统一当字母间。
+    """
+    g = np.asarray(g, float)
+    if len(g) == 0:
+        return np.inf, np.inf
+    if len(g) >= 3:
+        t1, t2 = _otsu3(g)
+        a, b, c = g[g <= t1], g[(g > t1) & (g <= t2)], g[g > t2]
+        if (len(a) and len(b) and len(c)
+                and b.mean() / a.mean() >= GAP_LEVEL_RATIO
+                and c.mean() / b.mean() >= GAP_LEVEL_RATIO):
+            return t1, t2
+    t, ratio = _otsu(g)
+    return (t, np.inf) if ratio >= GAP_LEVEL_RATIO else (np.inf, np.inf)
+
+
+def segment(taps: List[Tap]) -> List[List[List[Tap]]]:
+    """把一串按压切成 单词 → 字母 → 按压 三层(无监督)。
+
+    用两种量法各自在本条消息内部自适应地分层,**两者都认为该断的地方才断**:
+      * 静默秒数 —— 适合"每次按压中心间隔固定"的节奏(8 月单字母录制的按法);
+        但遇到"按得久停得也久"时,会把划后面的长停顿误切成字母边界。
+      * 静默 ÷ 两侧按压时长 —— 适合"按得久停得也久"的节奏(9 月单词录制的按法);
+        但遇到中心间隔固定时,点后面的停顿相对显长,会被误切。
+    两种量法出错的方式都是"多切一刀",而且多切的位置不同,取共识正好互相挡掉。
+    实测:9 月真实单词与 8 月节奏的合成消息,共识结果都与各自最合适的单一量法持平。
+    """
+    if not taps:
+        return []
+    gs, gr = silence_gaps(taps), relative_gaps(taps)
+    s_letter, s_word = gap_levels(gs)
+    r_letter, r_word = gap_levels(gr)
+    words, cur_w, cur_l = [], [], [taps[0]]
+    for i in range(len(gs)):
+        cut_word = gs[i] > s_word and gr[i] > r_word
+        cut_letter = cut_word or (gs[i] > s_letter and gr[i] > r_letter)
+        if cut_letter:
+            cur_w.append(cur_l); cur_l = []
+        if cut_word:
+            words.append(cur_w); cur_w = []
+        cur_l.append(taps[i + 1])
+    cur_w.append(cur_l); words.append(cur_w)
+    return words
+
+
+def group_into_letters(taps: List[Tap]) -> List[List[Tap]]:
+    """按间隔把 taps 切成一个个字母(不区分单词)。见 segment()。"""
+    return [lt for w in segment(taps) for lt in w]
 
 
 # --------------------------------------------------------------------------- #
@@ -354,19 +441,23 @@ def decode(sec: np.ndarray, R: np.ndarray) -> DecodeResult:
     """从(时间, 电阻)解码出字母:先切成一个个字母,再逐组判点/划。"""
     from collections import Counter
     rel, taps, base = preprocess(sec, R)
-    groups = group_into_letters(taps)
     width_thr = message_width_threshold(taps)   # 按整条消息自适应的点/划时长分界
 
     letters: List[LetterGroup] = []
+    words: List[List[LetterGroup]] = []
     rules: List[str] = []
-    for g in groups:
-        rules.append(classify_group(g, width_thr))
-        sym = "".join(t.symbol for t in g)
-        letters.append(LetterGroup(taps=g, symbol=sym, letter=MORSE_INV.get(sym, "?")))
+    for wd in segment(taps):                    # 单词 → 字母 → 按压
+        wl = []
+        for g in wd:
+            rules.append(classify_group(g, width_thr))
+            sym = "".join(t.symbol for t in g)
+            lg = LetterGroup(taps=g, symbol=sym, letter=MORSE_INV.get(sym, "?"))
+            letters.append(lg); wl.append(lg)
+        words.append(wl)
     rule = Counter(rules).most_common(1)[0][0] if rules else ""
-    text = "".join(lg.letter for lg in letters)
-    return DecodeResult(sec=sec, rel=rel, baseline_ohm=base,
-                        taps=taps, letters=letters, rule=rule, text=text)
+    text = " ".join("".join(lg.letter for lg in wl) for wl in words)
+    return DecodeResult(sec=sec, rel=rel, baseline_ohm=base, taps=taps, letters=letters,
+                        rule=rule, text=text, words=words)
 
 
 def decode_csv(path: str) -> DecodeResult:
