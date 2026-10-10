@@ -119,10 +119,16 @@ class DecodeResult:
 def load_keysight_csv(path: str) -> Tuple[np.ndarray, np.ndarray]:
     """读取 Keysight 34461A 导出的 CSV,返回(相对秒, 电阻Ω)。
 
-    文件头 8 行是仪器信息,第 8 行为表头 `Time (s), Channel 1 (Ω)`,数据从第 9 行起;
+    文件头是若干行仪器信息,随后一行表头 `Time (s), Channel 1 (Ω)`,再往下是数据。
+    仪器信息的行数会随导出设置变化(常见 7 行,勾选了采样参数时会多出 Sample Count、
+    NPLC、Range 等,变成 15 行),所以这里自动寻找表头行,而不是写死跳过几行。
     时间列是绝对时间戳,这里换算成从 0 开始的秒。若你的仪器格式不同,只需改此函数。
     """
-    df = pd.read_csv(path, skiprows=7, names=["t", "R"], header=0)
+    with open(path, encoding="utf-8-sig", errors="replace") as fh:
+        head = [next(fh, "") for _ in range(60)]
+    hdr = next((i for i, ln in enumerate(head) if ln.lstrip().lower().startswith("time")), 7)
+    df = pd.read_csv(path, skiprows=hdr, names=["t", "R"], header=0,
+                     encoding="utf-8-sig")
     t = pd.to_datetime(df["t"], errors="coerce", format="mixed")
     ok = t.notna()
     df, t = df[ok], t[ok]
