@@ -61,14 +61,48 @@ for _i in range(1, 5):
 # --------------------------------------------------------------------------- #
 # 排版助手
 # --------------------------------------------------------------------------- #
+_NO_LINE_START = set("。,、;:!?)」』】》,.;:!?)%")   # 不能出现在行首的标点(避头)
+
+
+def _char_w(ch):
+    """一个字符的大致显示宽度(以一个汉字为 1)。"""
+    if ord(ch) >= 0x2E80:
+        return 1.0
+    if ch.isupper() or ch in "→—–":
+        return 0.68
+    if ch.isdigit():
+        return 0.56
+    if ch in " .,:;'|!il()":
+        return 0.3
+    return 0.55
+
+
+def _is_word_char(ch):
+    return (ch.isascii() and ch.isalnum()) or ch in "→?±."
+
+
 def _wrap_cn(text, max_units):
-    """按可视宽度手动折行(中文算 1、ASCII 算 0.55)。中文没有空格,matplotlib 无法自动换行。"""
+    """按可视宽度手动折行(中文没有空格,matplotlib 无法自动换行)。
+
+    不在英文单词 / 数字 / 「A→T」这类记号中间断开;句号、右引号等不放在行首(悬挂在上一行末尾)。
+    """
     out, line, units = [], "", 0.0
     for ch in text:
-        w = 0.55 if ord(ch) < 0x2E80 else 1.0
-        if ch == "\n" or (units + w > max_units and line):
-            out.append(line)
-            line, units = ("" if ch == "\n" else ch), (0.0 if ch == "\n" else w)
+        if ch == "\n":
+            out.append(line); line, units = "", 0.0
+            continue
+        w = _char_w(ch)
+        if units + w > max_units and line and ch not in _NO_LINE_START:
+            if _is_word_char(ch):                       # 整个英文词挪到下一行
+                k = len(line)
+                while k > 0 and _is_word_char(line[k - 1]):
+                    k -= 1
+                if 0 < k < len(line):
+                    out.append(line[:k]); line = line[k:]
+                    units = sum(_char_w(c) for c in line)
+                    line += ch; units += w
+                    continue
+            out.append(line.rstrip()); line, units = ch.lstrip(), w
         else:
             line += ch; units += w
     if line:
@@ -490,7 +524,8 @@ def page_learning(pdf, R):
     txt(fig, .08, .225, "还有一个能力上的差别", 13, C_INK, "bold")
     txt(fig, .08, .193,
         "26 类分类模型只能对一个切好的片段给出一个字母。而规则解码可以直接读一整段连续消息 —— "
-        "我们已经验证过 SOS、HELP、WATER、ESCAPE 这类词能整句读出。"
+        "在 9 月录制的 20 个真实单词(SOS、STOP、SAFE 等,共 2000 遍)上,整词正确率 99.7%,"
+        "详见《单词测试报告》。"
         "「用一片柔性传感器实时解码任意消息」,比「分成 26 个类」更有应用价值,"
         "也更适合作为论文的应用落点。", 11)
     close(pdf, fig)
@@ -518,8 +553,8 @@ def page_data(pdf, R):
     txt(fig, .08, .465, "有两件小事想跟你确认", 13, C_RED, "bold")
     txt(fig, .08, .433,
         "① 字母 X 只有 79 次。从波形看你是一直在按的,应该是录制在 36 分钟时结束了"
-        "(按当时的节奏,录满 100 次大约需要 45 分钟)。这不影响现在的结论,"
-        "如果方便的话可以补录约 20 次。", 11)
+        "(按当时的节奏,录满 100 次大约需要 45 分钟)。这不影响任何结论,"
+        "不需要补录,只是告知一下。", 11)
     txt(fig, .08, .345,
         "② 有一份文件叫 D13+F58,里面顺序录了两个字母:前面约 1000 秒是 D,之后是 F。"
         "我们按这个分界拆开后得到 33 次 D 和 68 次 F,解码全部正确。"

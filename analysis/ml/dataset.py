@@ -185,6 +185,67 @@ def build(verbose=True):
     return d
 
 
+WORD_DIR = os.path.join(RAW, "20260929摩斯密码")
+
+
+def word_name(path):
+    """'SOS 2026-09-29 18-51-33 0.csv' → 'SOS';'UP.csv' → 'UP'。"""
+    return os.path.basename(path).split()[0].replace(".csv", "").upper()
+
+
+def word_reps(path):
+    """一份单词录制 → (单词, sec, rel, 完整重复列表, 点划时长分界)。
+
+    每份录制是同一个词连续按很多遍。这里借助已知的单词(总点划数)把按压流切成一遍遍,
+    只用于评测/构造测试集;实际解码走 morse_sensor.decode(),不看答案。
+    """
+    W = word_name(path)
+    sec, R = ms.load_keysight_csv(path)
+    rel, taps, _ = ms.preprocess(sec, R)
+    K = sum(len(ms.MORSE[c]) for c in W)
+    reps = [r for r in ms._regroup_by_count(taps, K) if len(r) == K] if taps else []
+    return W, sec, rel, reps, ms.message_width_threshold(taps), taps
+
+
+def split_letters(rep, word):
+    """一遍完整的单词 → 按真实字母长度切成字母(评测用的"标准答案"切分)。"""
+    out, i = [], 0
+    for c in word:
+        k = len(ms.MORSE[c])
+        out.append(rep[i:i + k]); i += k
+    return out
+
+
+def build_words(verbose=True):
+    """9 月单词录制 → 字母级测试集,表示方式与 build() 完全一致(可直接喂给同一批模型)。"""
+    X_seq, lens, X_feat, X_raw, y, rule_pred = [], [], [], [], [], []
+    word, word_id, rep_id, pos = [], [], [], []
+    words = []
+    for f in sorted(glob.glob(os.path.join(WORD_DIR, "*.csv"))):
+        W, sec, rel, reps, wt, _ = word_reps(f)
+        wid = len(words); words.append(W)
+        for j, rep in enumerate(reps):
+            for p, (c, lt) in enumerate(zip(W, split_letters(rep, W))):
+                seq, n = _token_seq(lt)
+                X_seq.append(seq); lens.append(n)
+                X_feat.append(_features(lt)); X_raw.append(_raw_clip(sec, rel, lt))
+                y.append(L2I[c]); word.append(W); word_id.append(wid)
+                rep_id.append(j); pos.append(p)
+                ms.classify_group(lt, wt)
+                sym = "".join(t.symbol for t in lt)
+                rule_pred.append(L2I.get(ms.MORSE_INV.get(sym, "?"), -1))
+        if verbose:
+            print(f"  {W:5s} 完整重复 {len(reps):3d}  字母 {len(reps)*len(W):4d}  "
+                  f"点划时长分界 {wt:.2f}s")
+    return dict(
+        X_seq=np.asarray(X_seq, np.float32), lens=np.asarray(lens, np.int64),
+        X_feat=np.asarray(X_feat, np.float32), X_raw=np.asarray(X_raw, np.float32),
+        y=np.asarray(y, np.int64), rule_pred=np.asarray(rule_pred, np.int64),
+        word=np.asarray(word), word_id=np.asarray(word_id, np.int64),
+        rep_id=np.asarray(rep_id, np.int64), pos=np.asarray(pos, np.int64),
+        words=np.asarray(words), feat_names=np.asarray(FEAT_NAMES))
+
+
 def _make_folds(d):
     """每份文件内按时间顺序切 N_FOLDS 个连续块,块号即折号。"""
     fold = np.zeros(len(d["y"]), np.int64)
